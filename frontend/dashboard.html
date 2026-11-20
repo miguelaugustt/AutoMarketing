@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AUT0MARKETING - Dashboard Principal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="app-container">
+  <!-- SIDEBAR LATERAL -->
+  <aside class="app-sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">
+        <i class="bi bi-broadcast"></i>
+      </div>
+      <div>
+        <h2 class="brand-name">AUT0MARKETING</h2>
+        <span class="brand-tag">v1.0 • Afiliados</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">Menu Principal</div>
+      <a href="dashboard.html" class="nav-link active">
+        <i class="bi bi-grid-1x2"></i> Dashboard
+      </a>
+      <a href="products.html" class="nav-link">
+        <i class="bi bi-box-seam"></i> Produtos Afiliados
+      </a>
+      <a href="groups.html" class="nav-link">
+        <i class="bi bi-people"></i> Grupos & Canais
+      </a>
+      <a href="campaigns.html" class="nav-link">
+        <i class="bi bi-megaphone"></i> Campanhas
+      </a>
+      <a href="history.html" class="nav-link">
+        <i class="bi bi-clock-history"></i> Histórico & Auditoria
+      </a>
+
+      <div class="nav-section-title mt-4">Sistema</div>
+      <a href="settings.html" class="nav-link">
+        <i class="bi bi-sliders"></i> Configurações & API
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-profile">
+        <div class="user-info">
+          <div class="user-avatar">ADM</div>
+          <div>
+            <div class="small fw-bold text-white" id="current-user-display">Administrador</div>
+            <div class="text-muted" style="font-size: 0.7rem;">Sessão Ativa</div>
+          </div>
+        </div>
+        <button id="btn-logout" class="btn btn-sm btn-outline-danger border-0" title="Sair do Sistema">
+          <i class="bi bi-box-arrow-right"></i>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CONTEÚDO PRINCIPAL -->
+  <main class="app-main">
+    <!-- HEADER SUPERIOR -->
+    <header class="app-header">
+      <div class="header-title-box">
+        <h1>Dashboard Geral</h1>
+        <p>Visão consolidada da automação de marketing e distribuição de anúncios</p>
+      </div>
+
+      <div class="header-actions">
+        <!-- Status Operacional Geral -->
+        <span id="system-status-badge" class="badge-status authorized">
+          <i class="bi bi-check-circle-fill"></i> Sistema Operacional
+        </span>
+
+        <!-- Botão Disparar Automação Manual -->
+        <button id="btn-trigger-cycle" class="btn btn-sm btn-outline-light d-flex align-items-center gap-2">
+          <i class="bi bi-play-circle"></i> Executar Ciclo Agora
+        </button>
+
+        <!-- Botão Kill Switch (Interrupção Geral) -->
+        <button id="btn-kill-switch" class="btn-emergency">
+          <i class="bi bi-stop-circle-fill"></i> Interrupção Geral
+        </button>
+      </div>
+    </header>
+
+    <!-- ÁREA DE CONTEÚDO -->
+    <div class="app-content">
+      <!-- ALERTA DE INTERRUPÇÃO GERAL (SE ATIVADO) -->
+      <div id="alert-kill-switch" class="alert alert-danger d-none align-items-center justify-content-between p-3 mb-4 rounded-3 shadow">
+        <div class="d-flex align-items-center gap-3">
+          <i class="bi bi-shield-slash-fill fs-3"></i>
+          <div>
+            <h6 class="mb-0 fw-bold">INTERRUPÇÃO GERAL ATIVADA!</h6>
+            <span class="small">Todas as publicações agendadas e campanhas automáticas estão suspensas por segurança.</span>
+          </div>
+        </div>
+        <button id="btn-resume-system" class="btn btn-sm btn-light fw-bold">Reativar Sistema</button>
+      </div>
+
+      <!-- CARDS DE ESTATÍSTICAS -->
+      <div class="row g-3 mb-4">
+        <!-- Card 1: Produtos -->
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="stat-card">
+            <div class="stat-card-header">
+              <span class="stat-label">Produtos Cadastrados</span>
+              <div class="stat-icon primary">
+                <i class="bi bi-box-seam"></i>
+              </div>
+            </div>
+            <h3 class="stat-value" id="stat-products-total">0</h3>
+            <div class="stat-meta">
+              <span class="text-success fw-bold" id="stat-products-active">0 ativos</span> prontos para rotação
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2: Grupos Autorizados -->
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="stat-card">
+            <div class="stat-card-header">
+              <span class="stat-label">Grupos Autorizados</span>
+              <div class="stat-icon success">
+                <i class="bi bi-shield-check"></i>
+              </div>
+            </div>
+            <h3 class="stat-value" id="stat-groups-authorized">0</h3>
+            <div class="stat-meta">
+              De <span id="stat-groups-total" class="fw-bold">0</span> grupos cadastrados (<span id="stat-groups-pending">0</span> pendentes)
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 3: Campanhas Ativas -->
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="stat-card">
+            <div class="stat-card-header">
+              <span class="stat-label">Campanhas Ativas</span>
+              <div class="stat-icon info">
+                <i class="bi bi-megaphone"></i>
+              </div>
+            </div>
+            <h3 class="stat-value" id="stat-campaigns-active">0</h3>
+            <div class="stat-meta">
+              Intervalo padrão de <span class="fw-bold text-white">24h</span> por comunidade
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 4: Publicações Realizadas -->
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="stat-card">
+            <div class="stat-card-header">
+              <span class="stat-label">Publicações Feitas</span>
+              <div class="stat-icon success">
+                <i class="bi bi-send-check"></i>
+              </div>
+            </div>
+            <h3 class="stat-value" id="stat-publications-published">0</h3>
+            <div class="stat-meta">
+              <span id="stat-publications-failed" class="text-danger fw-bold">0 falhas</span> • <span id="stat-publications-blocked" class="text-warning fw-bold">0 bloqueios</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAINEL CENTRAL: INFORMAÇÕES DO MOTOR E ATIVIDADES RECENTES -->
+      <div class="row g-4">
+        <!-- Coluna Esquerda: Tabela de Atividades Recentes -->
+        <div class="col-12 col-lg-8">
+          <div class="glass-card">
+            <div class="glass-card-header">
+              <h2 class="glass-card-title">
+                <i class="bi bi-activity text-primary"></i> Publicações Recentes
+              </h2>
+              <a href="history.html" class="btn btn-sm btn-outline-secondary">Ver Histórico Completo</a>
+            </div>
+
+            <div class="table-responsive">
+              <table class="custom-table" id="table-recent-pubs">
+                <thead>
+                  <tr>
+                    <th>Horário</th>
+                    <th>Grupo / Canal</th>
+                    <th>Produto Divulgado</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="recent-pubs-tbody">
+                  <tr>
+                    <td colspan="4" class="text-center py-4 text-muted">Carregando atividades...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Coluna Direita: Status de Integração e Ações Rápidas -->
+        <div class="col-12 col-lg-4">
+          <!-- Card de Status do Sistema -->
+          <div class="glass-card mb-4">
+            <div class="glass-card-header">
+              <h2 class="glass-card-title">
+                <i class="bi bi-cpu text-info"></i> Estado do Motor
+              </h2>
+            </div>
+            <div class="d-flex flex-column gap-3">
+              <div class="d-flex align-items-center justify-content-between p-2 rounded bg-dark border border-secondary border-opacity-25">
+                <span class="small text-secondary">Banco de Dados</span>
+                <span id="db-type-badge" class="badge bg-primary">Verificando...</span>
+              </div>
+              <div class="d-flex align-items-center justify-content-between p-2 rounded bg-dark border border-secondary border-opacity-25">
+                <span class="small text-secondary">Agendador Cron</span>
+                <span id="scheduler-status-badge" class="badge bg-success">Ativo (a cada 30m)</span>
+              </div>
+              <div class="d-flex align-items-center justify-content-between p-2 rounded bg-dark border border-secondary border-opacity-25">
+                <span class="small text-secondary">Última Execução</span>
+                <span id="scheduler-last-run" class="small text-white">Nenhum ciclo ainda</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card de Atalhos Rápidos -->
+          <div class="glass-card">
+            <div class="glass-card-header">
+              <h2 class="glass-card-title">
+                <i class="bi bi-lightning-charge text-warning"></i> Atalhos de Gestão
+              </h2>
+            </div>
+            <div class="d-grid gap-2">
+              <a href="products.html" class="btn btn-outline-light text-start py-2">
+                <i class="bi bi-plus-circle me-2 text-primary"></i> Cadastrar Novo Produto
+              </a>
+              <a href="groups.html" class="btn btn-outline-light text-start py-2">
+                <i class="bi bi-shield-plus me-2 text-success"></i> Autorizar Novo Grupo
+              </a>
+              <a href="campaigns.html" class="btn btn-outline-light text-start py-2">
+                <i class="bi bi-pencil-square me-2 text-info"></i> Nova Campanha de Divulgação
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal de Detalhes da Mensagem -->
+<div class="modal fade" id="modalMessageDetails" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold"><i class="bi bi-chat-text text-primary me-2"></i>Conteúdo do Anúncio</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <pre id="modal-message-content" class="p-3 rounded bg-dark text-white font-monospace text-wrap" style="white-space: pre-wrap; font-size: 0.85rem;"></pre>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>

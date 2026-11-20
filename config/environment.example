@@ -1,0 +1,39 @@
+# ==============================================================================
+# AUT0MARKETING - Variáveis de Ambiente e Configurações
+# Renomeie este arquivo para .env na raiz do projeto
+# ==============================================================================
+
+# Porta do Servidor Web
+PORT=3000
+NODE_ENV=development
+
+# Segurança e Autenticação Administrativa
+# Gere uma chave forte para produção
+JWT_SECRET=automarketing_jwt_secret_token_chavesegura_2026
+ADMIN_USER=admin
+ADMIN_PASSWORD=admin123
+
+# Banco de Dados Supabase (PostgreSQL)
+# Obtenha em: https://supabase.com -> Project Settings -> API
+# Deixe em branco ou com os valores padrão para usar o Armazenamento Local Resiliente (zero custos/desenvolvimento)
+SUPABASE_URL=https://seu-projeto.supabase.co
+SUPABASE_ANON_KEY=sua-chave-anon-publica-supabase
+SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role-privada-supabase
+
+# Integração Telegram Bot API
+# Obtenha com o @BotFather no Telegram: /newbot
+# Pode ser configurado aqui ou diretamente no painel administrativo em Configurações
+TELEGRAM_BOT_TOKEN=
+
+# Integração Meta Graph API (Facebook Pages - Opcional)
+# Obtenha no Meta for Developers -> Graph API Explorer
+META_PAGE_ACCESS_TOKEN=
+
+# Agendador Automático (Expressão Cron)
+# Padrão: a cada 30 minutos ('*/30 * * * *')
+# Exemplo a cada 1 hora: '0 * * * *'
+# Exemplo diário às 09:00: '0 9 * * *'
+SCHEDULER_CRON=*/30 * * * *
+
+# Modo Simulação (true para simular envios sem fazer chamadas externas reais)
+SIMULATION_MODE=false

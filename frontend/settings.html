@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AUT0MARKETING - Configurações & API</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="app-container">
+  <aside class="app-sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon"><i class="bi bi-broadcast"></i></div>
+      <div>
+        <h2 class="brand-name">AUT0MARKETING</h2>
+        <span class="brand-tag">v1.0 • Afiliados</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">Menu Principal</div>
+      <a href="dashboard.html" class="nav-link"><i class="bi bi-grid-1x2"></i> Dashboard</a>
+      <a href="products.html" class="nav-link"><i class="bi bi-box-seam"></i> Produtos Afiliados</a>
+      <a href="groups.html" class="nav-link"><i class="bi bi-people"></i> Grupos & Canais</a>
+      <a href="campaigns.html" class="nav-link"><i class="bi bi-megaphone"></i> Campanhas</a>
+      <a href="history.html" class="nav-link"><i class="bi bi-clock-history"></i> Histórico & Auditoria</a>
+      <div class="nav-section-title mt-4">Sistema</div>
+      <a href="settings.html" class="nav-link active"><i class="bi bi-sliders"></i> Configurações & API</a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-profile">
+        <div class="user-info">
+          <div class="user-avatar">ADM</div>
+          <div>
+            <div class="small fw-bold text-white" id="current-user-display">Administrador</div>
+            <div class="text-muted" style="font-size: 0.7rem;">Sessão Ativa</div>
+          </div>
+        </div>
+        <button id="btn-logout" class="btn btn-sm btn-outline-danger border-0" title="Sair do Sistema">
+          <i class="bi bi-box-arrow-right"></i>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="app-main">
+    <header class="app-header">
+      <div class="header-title-box">
+        <h1>Configurações do Sistema & Integrações</h1>
+        <p>Gerencie chaves de API, parâmetros de segurança, agendamento e credenciais</p>
+      </div>
+    </header>
+
+    <div class="app-content">
+      <div class="row g-4">
+        <!-- COLUNA ESQUERDA: PARÂMETROS OPERACIONAIS E INTEGRAÇÕES -->
+        <div class="col-12 col-lg-7">
+          <!-- CARD 1: CONTROLE DE SEGURANÇA E FREQUÊNCIA -->
+          <div class="glass-card mb-4">
+            <div class="glass-card-header">
+              <h2 class="glass-card-title">
+                <i class="bi bi-shield-check text-warning"></i> Parâmetros Operacionais de Segurança
+              </h2>
+            </div>
+
+            <form id="form-settings-operational">
+              <div class="mb-4 p-3 rounded bg-danger bg-opacity-10 border border-danger border-opacity-25">
+                <div class="d-flex align-items-center justify-content-between">
+                  <div>
+                    <h6 class="text-white fw-bold mb-1"><i class="bi bi-stop-circle text-danger me-2"></i>Interrupção Geral de Emergência (Kill Switch)</h6>
+                    <p class="text-secondary small mb-0">Suspende instantaneamente qualquer disparo ou publicação agendada no sistema.</p>
+                  </div>
+                  <div class="form-check form-switch fs-4">
+                    <input class="form-check-input" type="checkbox" id="setting-emergency-pause">
+                  </div>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="setting-frequency" class="form-label">Intervalo Mínimo Padrão entre Publicações no mesmo Grupo (Horas)</label>
+                <input type="number" id="setting-frequency" class="form-control" min="1" max="168" value="24" required>
+                <span class="small text-muted">A Seção 5.3 especifica 24 horas por padrão para preservar as comunidades e evitar excessos.</span>
+              </div>
+
+              <div class="mb-4">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="setting-simulation-mode">
+                  <label class="form-check-label text-white fw-semibold small" for="setting-simulation-mode">
+                    Ativar Modo de Simulação (Dry-Run)
+                  </label>
+                  <div class="text-muted small">Quando ativo, o motor executa a seleção e o histórico sem efetuar disparos reais nas APIs externas.</div>
+                </div>
+              </div>
+
+              <button type="submit" id="btn-save-operational" class="btn btn-primary-custom">
+                <i class="bi bi-save me-1"></i> Salvar Parâmetros
+              </button>
+            </form>
+          </div>
+
+          <!-- CARD 2: INTEGRAÇÃO TELEGRAM BOT -->
+          <div class="glass-card">
+            <div class="glass-card-header">
+              <h2 class="glass-card-title">
+                <i class="bi bi-telegram text-info"></i> Integração Telegram Bot API
+              </h2>
+            </div>
+
+            <form id="form-settings-telegram">
+              <div class="mb-3">
+                <label for="setting-telegram-token" class="form-label">Token do Bot Oficial (@BotFather)</label>
+                <div class="input-group">
+                  <input type="password" id="setting-telegram-token" class="form-control font-monospace" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ">
+                  <button type="button" class="btn btn-outline-secondary" id="btn-toggle-token-visibility" title="Mostrar/Ocultar">
+                    <i class="bi bi-eye"></i>
+                  </button>
+                </div>
+                <span class="small text-muted">Obtido ao criar um bot no Telegram com o <code>@BotFather</code>. As credenciais são armazenadas de forma segura.</span>
+              </div>
+
+              <div id="telegram-test-result" class="alert d-none small font-monospace mb-3"></div>
+
+              <div class="d-flex gap-2">
+                <button type="button" id="btn-test-telegram" class="btn btn-outline-info">
+                  <i class="bi bi-robot me-1"></i> Testar Conexão do Bot
+                </button>
+                <button type="submit" id="btn-save-telegram" class="btn btn-primary-custom">
+                  <i class="bi bi-save me-1"></i> Salvar Token
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- COLUNA DIREITA: SUPABASE, INFRAESTRUTURA E ACESSO -->
+        <div class="col-12 col-lg-5">
+          <!-- CARD 3: BANCO DE DADOS & SUPABASE -->
+          <div class="glass-card mb-4">
+            <div class="glass-card-header">
+              <h2 class="glass-card-title">
+                <i class="bi bi-database text-success"></i> Infraestrutura de Banco de Dados
+              </h2>
+            </div>
+
+            <div class="p-3 rounded bg-dark border border-secondary border-opacity-25 mb-3">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="small text-secondary">Provedor Ativo:</span>
+                <span id="db-status-badge" class="badge bg-success">Local Resiliente (JSON)</span>
+              </div>
+              <div class="d-flex align-items-center justify-content-between">
+                <span class="small text-secondary">Variáveis Supabase:</span>
+                <span id="db-supabase-env-badge" class="small text-muted">Não configuradas</span>
+              </div>
+            </div>
+
+            <h6 class="text-white fw-bold small mb-2"><i class="bi bi-info-circle me-1 text-info"></i> Como Conectar o Supabase:</h6>
+            <ol class="small text-secondary ps-3 mb-0">
+              <li class="mb-1">Crie um projeto gratuito em <a href="https://supabase.com" target="_blank" class="text-info">supabase.com</a>.</li>
+              <li class="mb-1">No <strong>SQL Editor</strong> do Supabase, cole e execute o script <code>database/schema.sql</code>.</li>
+              <li class="mb-1">Copie sua <strong>URL</strong> e chave <strong>anon/service_role</strong> para o arquivo <code>.env</code>.</li>
+              <li>Ao reiniciar o servidor, o sistema se conectará automaticamente ao Supabase PostgreSQL!</li>
+            </ol>
+          </div>
+
+          <!-- CARD 4: SEGURANÇA ADMINISTRATIVA (SENHA) -->
+          <div class="glass-card">
+            <div class="glass-card-header">
+              <h2 class="glass-card-title">
+                <i class="bi bi-key text-primary"></i> Acesso Administrativo
+              </h2>
+            </div>
+
+            <form id="form-change-password">
+              <div class="mb-3">
+                <label for="current-password" class="form-label">Senha Atual</label>
+                <input type="password" id="current-password" class="form-control" placeholder="Senha atual" required>
+              </div>
+
+              <div class="mb-3">
+                <label for="new-password" class="form-label">Nova Senha</label>
+                <input type="password" id="new-password" class="form-control" placeholder="Mínimo de 6 caracteres" required>
+              </div>
+
+              <button type="submit" id="btn-change-password" class="btn btn-outline-light w-100">
+                <i class="bi bi-shield-lock me-1"></i> Atualizar Senha
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/settings.js"></script>
+</body>
+</html>
