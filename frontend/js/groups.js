@@ -1,5 +1,5 @@
 /**
- * AUT0MARKETING - Lógica de Gerenciamento de Grupos e Comunidades
+ * AUT0MARKETING - Lógica de Gerenciamento de Grupos e Comunidades (Permissões Automáticas)
  */
 
 let groupModalInstance = null;
@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('btn-open-create-group').addEventListener('click', openCreateModal);
   document.getElementById('form-group').addEventListener('submit', handleSaveGroup);
+  document.getElementById('btn-sync-all').addEventListener('click', syncAllGroupsPermissions);
 });
 
 async function loadGroups() {
@@ -58,7 +59,7 @@ function renderGroupsTable(groups) {
       <tr>
         <td colspan="6" class="text-center py-5 text-muted">
           <i class="bi bi-people fs-2 d-block mb-2"></i>
-          Nenhum grupo encontrado com os filtros aplicados.
+          Nenhuma comunidade cadastrada até o momento.
         </td>
       </tr>
     `;
@@ -67,22 +68,22 @@ function renderGroupsTable(groups) {
 
   const statusLabels = {
     pending: { label: 'Pendente de Verificação', class: 'pending', icon: 'bi-hourglass-split' },
-    authorized: { label: 'Autorizado', class: 'authorized', icon: 'bi-check-circle' },
-    unauthorized: { label: 'Não Autorizado', class: 'unauthorized', icon: 'bi-x-circle' },
+    authorized: { label: 'Autorizado pelo Bot', class: 'authorized', icon: 'bi-check-circle' },
+    unauthorized: { label: 'Sem Permissão no Chat', class: 'unauthorized', icon: 'bi-x-circle' },
     blocked: { label: 'Bloqueado', class: 'blocked', icon: 'bi-slash-circle' },
-    unavailable: { label: 'Indisponível', class: 'unavailable', icon: 'bi-exclamation-triangle' }
+    unavailable: { label: 'Bot Ausente no Chat', class: 'unavailable', icon: 'bi-exclamation-triangle' }
   };
 
   tbody.innerHTML = groups.map(g => {
     const statusInfo = statusLabels[g.authorization_status] || statusLabels.pending;
     
-    // Análise do cooldown de 24 horas
+    // Cooldown de 24h
     let cooldownText = '<span class="text-success small">Apto para envio</span>';
     if (g.last_publication_at) {
       const elapsedHours = (Date.now() - new Date(g.last_publication_at).getTime()) / (1000 * 60 * 60);
       if (elapsedHours < 24) {
         const remaining = (24 - elapsedHours).toFixed(1);
-        cooldownText = `<span class="text-warning small"><i class="bi bi-clock-history me-1"></i>Cooldown: restam ${remaining}h</span>`;
+        cooldownText = `<span class="text-warning small"><i class="bi bi-clock-history me-1"></i>Aguarde ${remaining}h</span>`;
       } else {
         cooldownText = `<span class="text-muted small">Há ${Math.floor(elapsedHours)}h (Liberado)</span>`;
       }
@@ -110,18 +111,18 @@ function renderGroupsTable(groups) {
           <div class="d-flex flex-column gap-1 small">
             <div>
               <i class="bi ${g.advertising_permission ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger'} me-1"></i>
-              Divulgação: ${g.advertising_permission ? 'Sim' : 'Não'}
+              Divulgação: ${g.advertising_permission ? 'Autorizada' : 'Negada'}
             </div>
             <div>
               <i class="bi ${g.automation_permission ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger'} me-1"></i>
-              Automação: ${g.automation_permission ? 'Sim' : 'Não'}
+              Automação: ${g.automation_permission ? 'Ativa' : 'Inativa'}
             </div>
           </div>
         </td>
         <td>${cooldownText}</td>
         <td class="text-end">
-          <button class="btn btn-sm btn-outline-warning me-1" onclick="testGroupPermissions('${g.id}')" title="Testar Permissões do Bot">
-            <i class="bi bi-robot"></i> Testar
+          <button class="btn btn-sm btn-outline-warning me-1" onclick="testGroupPermissions('${g.id}')" title="Re-verificar Permissões Agora">
+            <i class="bi bi-robot"></i> Revalidar
           </button>
           <button class="btn btn-sm btn-outline-info me-1" onclick="openEditModal('${g.id}')" title="Editar">
             <i class="bi bi-pencil"></i>
@@ -136,15 +137,12 @@ function renderGroupsTable(groups) {
 }
 
 function openCreateModal() {
-  document.getElementById('modalGroupTitle').innerHTML = '<i class="bi bi-people text-primary me-2"></i>Cadastrar Grupo / Comunidade';
+  document.getElementById('modalGroupTitle').innerHTML = '<i class="bi bi-people text-primary me-2"></i>Cadastrar Grupo / Canal';
   document.getElementById('group-id').value = '';
   document.getElementById('group-name').value = '';
   document.getElementById('group-platform').value = 'Telegram';
   document.getElementById('group-external-id').value = '';
   document.getElementById('group-invite-url').value = '';
-  document.getElementById('group-auth-status').value = 'pending';
-  document.getElementById('group-advertising-permission').checked = false;
-  document.getElementById('group-automation-permission').checked = false;
   document.getElementById('group-active').checked = true;
 
   if (groupModalInstance) groupModalInstance.show();
@@ -154,15 +152,12 @@ function openEditModal(id) {
   const g = currentGroups.find(item => item.id === id);
   if (!g) return;
 
-  document.getElementById('modalGroupTitle').innerHTML = '<i class="bi bi-pencil-square text-primary me-2"></i>Editar Grupo / Comunidade';
+  document.getElementById('modalGroupTitle').innerHTML = '<i class="bi bi-pencil-square text-primary me-2"></i>Editar Grupo / Canal';
   document.getElementById('group-id').value = g.id;
   document.getElementById('group-name').value = g.name;
   document.getElementById('group-platform').value = g.platform;
   document.getElementById('group-external-id').value = g.external_group_id || '';
   document.getElementById('group-invite-url').value = g.invite_url || '';
-  document.getElementById('group-auth-status').value = g.authorization_status || 'pending';
-  document.getElementById('group-advertising-permission').checked = Boolean(g.advertising_permission);
-  document.getElementById('group-automation-permission').checked = Boolean(g.automation_permission);
   document.getElementById('group-active').checked = g.active;
 
   if (groupModalInstance) groupModalInstance.show();
@@ -176,9 +171,6 @@ async function handleSaveGroup(e) {
     platform: document.getElementById('group-platform').value,
     external_group_id: document.getElementById('group-external-id').value.trim(),
     invite_url: document.getElementById('group-invite-url').value.trim(),
-    authorization_status: document.getElementById('group-auth-status').value,
-    advertising_permission: document.getElementById('group-advertising-permission').checked,
-    automation_permission: document.getElementById('group-automation-permission').checked,
     active: document.getElementById('group-active').checked
   };
 
@@ -186,14 +178,14 @@ async function handleSaveGroup(e) {
 
   try {
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Salvando...';
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Validando com Bot...';
 
     if (id) {
       await api.put(`/groups/${id}`, payload);
       showToast('Grupo atualizado com sucesso!', 'success');
     } else {
-      await api.post('/groups', payload);
-      showToast('Grupo cadastrado com sucesso!', 'success');
+      const res = await api.post('/groups', payload);
+      showToast(res.message || 'Grupo cadastrado com sucesso!', 'success', 5000);
     }
 
     if (groupModalInstance) groupModalInstance.hide();
@@ -202,20 +194,42 @@ async function handleSaveGroup(e) {
     showToast(error.message || 'Erro ao salvar grupo.', 'error');
   } finally {
     btn.disabled = false;
-    btn.innerHTML = '<i class="bi bi-save me-1"></i> Salvar Grupo';
+    btn.innerHTML = '<i class="bi bi-save me-1"></i> Salvar e Validar com Bot';
   }
 }
 
 async function testGroupPermissions(id) {
   try {
-    showToast('Consultando permissões do bot na plataforma...', 'info');
+    showToast('Revalidando permissões diretamente com o Telegram...', 'info');
     const res = await api.post(`/groups/${id}/test-permissions`);
     if (res.success) {
-      showToast(`Sucesso! ${res.message}`, 'success', 5000);
+      showToast(`Permissões atualizadas automaticamente! ${res.message}`, 'success', 5000);
+      loadGroups();
+    } else {
+      showToast(`Atenção: ${res.message || 'Bot sem permissão no chat.'}`, 'warning', 6000);
       loadGroups();
     }
   } catch (error) {
     showToast(`Erro na verificação: ${error.message}`, 'error', 6000);
+  }
+}
+
+async function syncAllGroupsPermissions() {
+  const btn = document.getElementById('btn-sync-all');
+  try {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Sincronizando...';
+
+    const res = await api.post('/groups/sync-all');
+    if (res.success) {
+      showToast(res.message, 'success', 5000);
+      loadGroups();
+    }
+  } catch (error) {
+    showToast('Erro ao sincronizar grupos: ' + error.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i> Sincronizar Permissões com Telegram';
   }
 }
 

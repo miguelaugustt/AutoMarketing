@@ -6,6 +6,7 @@ const { authMiddleware } = require('../middleware/auth.middleware');
 router.use(authMiddleware);
 
 router.get('/', (req, res, next) => groupsController.list(req, res, next));
+router.post('/sync-all', (req, res, next) => groupsController.syncAllPermissions(req, res, next));
 router.get('/:id', (req, res, next) => groupsController.getById(req, res, next));
 router.post('/', (req, res, next) => groupsController.create(req, res, next));
 router.put('/:id', (req, res, next) => groupsController.update(req, res, next));

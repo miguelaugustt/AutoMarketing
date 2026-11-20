@@ -29,7 +29,7 @@
         <label for="username" class="form-label">Usuário Administrativo</label>
         <div class="input-group">
           <span class="input-group-text bg-dark border-secondary text-secondary"><i class="bi bi-person"></i></span>
-          <input type="text" id="username" class="form-control" placeholder="ex: admin" value="admin" required autofocus>
+          <input type="text" id="username" class="form-control" placeholder="Digite seu usuário" autocomplete="username" required autofocus>
         </div>
       </div>
 
@@ -37,7 +37,10 @@
         <label for="password" class="form-label">Senha de Acesso</label>
         <div class="input-group">
           <span class="input-group-text bg-dark border-secondary text-secondary"><i class="bi bi-shield-lock"></i></span>
-          <input type="password" id="password" class="form-control" placeholder="Sua senha" value="admin123" required>
+          <input type="password" id="password" class="form-control" placeholder="Digite sua senha" autocomplete="current-password" required>
+          <button type="button" class="btn btn-outline-secondary border-secondary bg-dark text-secondary" id="btn-toggle-password" title="Mostrar/Ocultar Senha">
+            <i class="bi bi-eye" id="toggle-password-icon"></i>
+          </button>
         </div>
       </div>
 
@@ -45,11 +48,6 @@
         <button type="submit" id="btn-login-submit" class="btn btn-primary-custom py-2">
           <i class="bi bi-box-arrow-in-right me-2"></i>Acessar Painel
         </button>
-      </div>
-
-      <div class="p-3 rounded bg-dark border border-secondary border-opacity-25 text-center">
-        <p class="text-muted small mb-1"><i class="bi bi-key me-1"></i> Credenciais padrão de demonstração:</p>
-        <code class="text-info fw-bold">admin</code> / <code class="text-info fw-bold">admin123</code>
       </div>
     </form>
   </div>

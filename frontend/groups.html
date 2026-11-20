@@ -53,10 +53,13 @@
   <main class="app-main">
     <header class="app-header">
       <div class="header-title-box">
-        <h1>Grupos & Comunidades Autorizadas</h1>
-        <p>Gerencie os canais de divulgação, permissões de administradores e controle de acesso</p>
+        <h1>Grupos & Comunidades</h1>
+        <p>Controle de destinos com validação automática de permissões via Bot</p>
       </div>
       <div class="header-actions">
+        <button id="btn-sync-all" class="btn btn-sm btn-outline-info">
+          <i class="bi bi-arrow-repeat me-1"></i> Sincronizar Permissões com Telegram
+        </button>
         <button id="btn-open-create-group" class="btn btn-primary-custom">
           <i class="bi bi-plus-lg"></i> Cadastrar Grupo
         </button>
@@ -64,12 +67,11 @@
     </header>
 
     <div class="app-content">
-      <!-- NOTA DE CONFORMIDADE ÉTICA -->
+      <!-- NOTA DE DETECÇÃO AUTOMÁTICA -->
       <div class="alert alert-info bg-opacity-10 border border-info border-opacity-25 d-flex align-items-center gap-3 p-3 mb-4 rounded-3">
-        <i class="bi bi-shield-check fs-3 text-info"></i>
+        <i class="bi bi-robot fs-3 text-info"></i>
         <div class="small text-white">
-          <strong>Princípio de Conformidade:</strong> A ausência de regra proibindo divulgação não é considerada autorização automática.
-          O sistema só agenda e publica em grupos com <strong>Status Autorizado</strong> e confirmação explícita de permissão para anúncios e automação.
+          <strong>Validação Automática pelo Bot:</strong> Você não precisa marcar permissões manualmente. O sistema consulta diretamente a API oficial do Telegram para confirmar se o bot possui acesso e permissões para enviar anúncios no grupo.
         </div>
       </div>
 
@@ -114,10 +116,10 @@
               <tr>
                 <th>Nome da Comunidade</th>
                 <th>Plataforma & ID</th>
-                <th>Status de Autorização</th>
-                <th>Permissões</th>
-                <th>Última Publicação (24h)</th>
-                <th class="text-end">Ações & Teste</th>
+                <th>Status (Automático)</th>
+                <th>Permissões do Bot</th>
+                <th>Última Publicação</th>
+                <th class="text-end">Ações</th>
               </tr>
             </thead>
             <tbody id="groups-tbody">
@@ -138,7 +140,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title fw-bold" id="modalGroupTitle">
-          <i class="bi bi-people text-primary me-2"></i>Cadastrar Grupo / Comunidade
+          <i class="bi bi-people text-primary me-2"></i>Cadastrar Grupo / Canal
         </h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
@@ -148,7 +150,7 @@
 
           <div class="row g-3">
             <div class="col-12 col-md-7">
-              <label for="group-name" class="form-label">Nome do Grupo *</label>
+              <label for="group-name" class="form-label">Nome da Comunidade / Grupo *</label>
               <input type="text" id="group-name" class="form-control" placeholder="ex: Clube de Afiliados VIP" required>
             </div>
             <div class="col-12 col-md-5">
@@ -159,53 +161,34 @@
               </select>
             </div>
 
-            <div class="col-12 col-md-6">
+            <div class="col-12 col-md-7">
               <label for="group-external-id" class="form-label">Identificação / ID Externo *</label>
-              <input type="text" id="group-external-id" class="form-control" placeholder="Telegram: -100123456789 ou @canal" required>
-              <span class="small text-muted">No Telegram, adicione o bot ao grupo como administrador para obter o chat ID.</span>
+              <input type="text" id="group-external-id" class="form-control font-monospace" placeholder="Telegram: -100123456789 ou @canal" required>
+              <span class="small text-muted">O ID do grupo no Telegram (ex: -100...). Adicione seu bot ao grupo como administrador.</span>
             </div>
-            <div class="col-12 col-md-6">
+
+            <div class="col-12 col-md-5">
               <label for="group-invite-url" class="form-label">Link de Convite (Opcional)</label>
               <input type="url" id="group-invite-url" class="form-control" placeholder="https://t.me/...">
             </div>
 
-            <div class="col-12 col-md-6">
-              <label for="group-auth-status" class="form-label">Status de Autorização *</label>
-              <select id="group-auth-status" class="form-select" required>
-                <option value="pending">1. Pendente de verificação</option>
-                <option value="authorized">2. Autorizado</option>
-                <option value="unauthorized">3. Não autorizado</option>
-                <option value="blocked">4. Bloqueado</option>
-                <option value="unavailable">5. Indisponível</option>
-              </select>
-            </div>
-
-            <div class="col-12 col-md-6 d-flex align-items-center">
-              <div class="form-check form-switch mt-4">
-                <input class="form-check-input" type="checkbox" id="group-active" checked>
-                <label class="form-check-label text-white fw-semibold" for="group-active">
-                  Grupo Operacional (Habilitado no sistema)
-                </label>
+            <div class="col-12">
+              <div class="p-3 rounded bg-dark border border-info border-opacity-25 mt-2">
+                <div class="d-flex align-items-center gap-2 mb-1 text-info fw-bold small">
+                  <i class="bi bi-shield-check"></i> Validação Automática de Status e Permissões
+                </div>
+                <p class="small text-secondary mb-0">
+                  Ao salvar, o sistema testa automaticamente a conexão com o Telegram. Se o bot tiver permissão para postar, o grupo será marcado automaticamente como <strong>Autorizado</strong>.
+                </p>
               </div>
             </div>
 
             <div class="col-12">
-              <div class="p-3 rounded bg-dark border border-secondary border-opacity-25 mt-2">
-                <h6 class="text-white fw-bold small mb-2"><i class="bi bi-shield-lock me-1 text-warning"></i> Termos de Consentimento e Regras:</h6>
-                
-                <div class="form-check mb-2">
-                  <input class="form-check-input" type="checkbox" id="group-advertising-permission">
-                  <label class="form-check-label text-white small" for="group-advertising-permission">
-                    <strong>Permissão para divulgação:</strong> Os administradores desta comunidade autorizaram expressamente postagens de ofertas e produtos afiliados.
-                  </label>
-                </div>
-
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" id="group-automation-permission">
-                  <label class="form-check-label text-white small" for="group-automation-permission">
-                    <strong>Permissão para uso de automação:</strong> Os moderadores estão cientes e autorizaram publicações programadas via Bot.
-                  </label>
-                </div>
+              <div class="form-check form-switch mt-2">
+                <input class="form-check-input" type="checkbox" id="group-active" checked>
+                <label class="form-check-label text-white fw-semibold small" for="group-active">
+                  Grupo Habilitado para Campanhas
+                </label>
               </div>
             </div>
           </div>
@@ -213,7 +196,7 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
           <button type="submit" id="btn-save-group" class="btn btn-primary-custom">
-            <i class="bi bi-save me-1"></i> Salvar Grupo
+            <i class="bi bi-save me-1"></i> Salvar e Validar com Bot
           </button>
         </div>
       </form>

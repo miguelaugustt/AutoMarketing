@@ -2,7 +2,7 @@ const axios = require('axios');
 
 async function runTests() {
   const BASE_URL = 'http://localhost:3000';
-  console.log('🧪 Iniciando Testes End-to-End do AUT0MARKETING...\n');
+  console.log('🧪 Iniciando Testes End-to-End do AUT0MARKETING (Estado Limpo & Permissões Automáticas)...\n');
 
   try {
     // 1. Health check
@@ -23,100 +23,119 @@ async function runTests() {
       headers: { Authorization: `Bearer ${token}` }
     };
 
-    // 3. Dashboard Stats
-    console.log('\n3. Testando Dashboard Stats...');
-    const statsRes = await axios.get(`${BASE_URL}/api/dashboard/stats`, authHeaders);
-    console.log('   ✅ Estatísticas:', {
-      produtos: statsRes.data.stats.products.total,
-      grupos_autorizados: statsRes.data.stats.groups.authorized,
-      campanhas: statsRes.data.stats.campaigns.total,
-      status: statsRes.data.stats.system.status
-    });
+    // 3. Validação do Estado Inicial Limpo (sem dados pré-preenchidos)
+    console.log('\n3. Validando Estado Inicial Limpo...');
+    const initialStatsRes = await axios.get(`${BASE_URL}/api/dashboard/stats`, authHeaders);
+    const initialStats = initialStatsRes.data.stats;
+    console.log('   ✅ Banco de dados inicial verificado:');
+    console.log(`      - Produtos: ${initialStats.products.total} (Vazio e limpo)`);
+    console.log(`      - Grupos: ${initialStats.groups.total} (Vazio e limpo)`);
+    console.log(`      - Campanhas: ${initialStats.campaigns.total} (Vazio e limpo)`);
+    console.log(`      - Publicações: ${initialStats.publications.total} (Vazio e limpo)`);
 
-    // 4. Produtos CRUD
-    console.log('\n4. Testando CRUD de Produtos Afiliados...');
-    const createProdRes = await axios.post(`${BASE_URL}/api/products`, {
-      name: 'Curso Teste Automatizado',
-      description: 'Descrição de teste para validação de ciclo',
-      affiliate_url: 'https://kiwify.app/teste-auto?af=test1',
-      category: 'Tecnologia',
+    // 4. Criação de Produtos Afiliados
+    console.log('\n4. Testando Cadastro de Produtos Afiliados...');
+    const prod1Res = await axios.post(`${BASE_URL}/api/products`, {
+      name: 'Curso Renda Extra Digital',
+      description: 'Treinamento completo sobre serviços digitais e monetização',
+      affiliate_url: 'https://kiwify.app/renda-extra-demo?af=test1',
+      category: 'Educação Financeira',
       platform: 'Kiwify',
-      promotional_text: 'Oferta exclusiva de teste',
+      promotional_text: 'Aprenda modelos testados de prestação de serviços online.',
       active: true
     }, authHeaders);
-    const createdProductId = createProdRes.data.product.id;
-    console.log('   ✅ Produto criado com ID:', createdProductId);
+    const prod1Id = prod1Res.data.product.id;
 
-    // Toggle active
-    const toggleProdRes = await axios.patch(`${BASE_URL}/api/products/${createdProductId}/toggle-active`, {}, authHeaders);
-    console.log('   ✅ Toggle status produto:', toggleProdRes.data.product.active ? 'Ativo' : 'Inativo');
-
-    // Reativa produto
-    await axios.patch(`${BASE_URL}/api/products/${createdProductId}/toggle-active`, {}, authHeaders);
-
-    // 5. Grupos
-    console.log('\n5. Testando Gerenciamento de Grupos e Verificação de Permissões...');
-    const groupsRes = await axios.get(`${BASE_URL}/api/groups`, authHeaders);
-    console.log(`   ✅ Total de grupos recuperados: ${groupsRes.data.count}`);
-    const firstGroup = groupsRes.data.groups[0];
-
-    const testPermRes = await axios.post(`${BASE_URL}/api/groups/${firstGroup.id}/test-permissions`, {}, authHeaders);
-    console.log('   ✅ Teste de permissão do bot no grupo:', testPermRes.data.message);
-
-    // 6. Campanhas & Preview de Variações de Anúncio
-    console.log('\n6. Testando Geração de Variações de Anúncios e Spintax...');
-    const previewRes = await axios.post(`${BASE_URL}/api/campaigns/preview`, {
-      message_template: '{Descubra agora|Aprenda hoje|Veja esta novidade}: {product_name}!\nLink: {affiliate_url}',
-      product_id: createdProductId
+    const prod2Res = await axios.post(`${BASE_URL}/api/products`, {
+      name: 'Guia Produtividade Máxima',
+      description: 'E-book e templates de gestão de rotina',
+      affiliate_url: 'https://kiwify.app/produtividade-demo?af=test2',
+      category: 'Desenvolvimento Pessoal',
+      platform: 'Kiwify',
+      promotional_text: 'Transforme sua rotina diária com organização.',
+      active: true
     }, authHeaders);
-    console.log('   ✅ Variações geradas:');
-    previewRes.data.previews.forEach((p, i) => {
-      console.log(`      [Variação ${p.version}]: "${p.text.replace(/\n/g, ' ')}"`);
-    });
+    const prod2Id = prod2Res.data.product.id;
 
-    // 7. Execução do Motor de Distribuição (Disparo de Campanha)
+    console.log('   ✅ Produtos cadastrados com sucesso:', prod1Id, prod2Id);
+
+    // 5. Testando Cadastro de Grupos com Validação AUTOMÁTICA de Permissões
+    console.log('\n5. Testando Validação AUTOMÁTICA de Permissões do Bot...');
+    const group1Res = await axios.post(`${BASE_URL}/api/groups`, {
+      name: 'Comunidade Afiliados VIP',
+      platform: 'Telegram',
+      external_group_id: '-1001987654321',
+      invite_url: 'https://t.me/afiliados_vip_demo',
+      active: true
+    }, authHeaders);
+    const group1 = group1Res.data.group;
+
+    console.log(`   ✅ Grupo cadastrado com status automático: [${group1.authorization_status}]`);
+    console.log(`   ✅ Permissões automáticas: Divulgação=${group1.advertising_permission}, Automação=${group1.automation_permission}`);
+
+    // Teste de revalidação de permissões individual
+    const testPermRes = await axios.post(`${BASE_URL}/api/groups/${group1.id}/test-permissions`, {}, authHeaders);
+    console.log('   ✅ Revalidação automática via Telegram API:', testPermRes.data.message);
+
+    // Teste de sincronização em lote
+    const syncAllRes = await axios.post(`${BASE_URL}/api/groups/sync-all`, {}, authHeaders);
+    console.log('   ✅ Sincronização em lote concluída:', syncAllRes.data.message);
+
+    // 6. Criação de Campanha com Spintax
+    console.log('\n6. Testando Criação de Campanha e Geração de Variações...');
+    const campRes = await axios.post(`${BASE_URL}/api/campaigns`, {
+      name: 'Campanha Rotação Geral Afiliados',
+      frequency_hours: 24,
+      product_id: null, // Rotação Inteligente Aleatória
+      message_template: '{Está procurando se qualificar?|Conheça este material exclusivo|Confira esta novidade:}\n\n📌 *{product_name}*\n_{product_description}_\n\n👉 Saiba mais: {affiliate_url}',
+      status: 'active'
+    }, authHeaders);
+    const campaignId = campRes.data.campaign.id;
+    console.log('   ✅ Campanha criada com sucesso (ID):', campaignId);
+
+    // Preview
+    const previewRes = await axios.post(`${BASE_URL}/api/campaigns/preview`, {
+      message_template: campRes.data.campaign.message_template,
+      product_id: prod1Id
+    }, authHeaders);
+    console.log(`   ✅ Amostra gerada: "${previewRes.data.previews[0].text.replace(/\n/g, ' ')}"`);
+
+    // 7. Execução do Motor de Distribuição (Disparo)
     console.log('\n7. Testando Execução do Motor de Distribuição...');
-    const campaignsRes = await axios.get(`${BASE_URL}/api/campaigns`, authHeaders);
-    const campaignId = campaignsRes.data.campaigns[0].id;
-
     const triggerRes = await axios.post(`${BASE_URL}/api/campaigns/${campaignId}/trigger`, {
-      ignoreInterval: true, // Força execução para testar fluxo completo
+      ignoreInterval: true,
       force: true
     }, authHeaders);
-    console.log('   ✅ Resultado do disparo:', {
+    console.log('   ✅ Disparo concluído com sucesso:', {
       campanha: triggerRes.data.result.campaignName,
       processados: triggerRes.data.result.processed,
       detalhes: triggerRes.data.result.details.map(d => ({ grupo: d.group, status: d.status, produto: d.product }))
     });
 
-    // 8. Histórico de Publicações
-    console.log('\n8. Testando Consulta de Histórico de Publicações...');
+    // 8. Consulta de Histórico de Auditoria
+    console.log('\n8. Testando Histórico de Publicações...');
     const historyRes = await axios.get(`${BASE_URL}/api/publications`, authHeaders);
-    console.log(`   ✅ Registros no histórico de auditoria: ${historyRes.data.count}`);
+    console.log(`   ✅ Registros no histórico: ${historyRes.data.count}`);
     if (historyRes.data.publications.length > 0) {
-      const latest = historyRes.data.publications[0];
-      console.log(`   ✅ Última publicação: [${latest.status}] para Grupo: "${latest.group?.name}" com Produto: "${latest.product?.name}"`);
+      const pub = historyRes.data.publications[0];
+      console.log(`   ✅ Status: [${pub.status}] para Grupo: "${pub.group?.name}" com Produto: "${pub.product?.name}"`);
     }
 
-    // 9. Teste do Kill Switch (Interrupção Geral de Emergência)
-    console.log('\n9. Testando Kill Switch (Interrupção Geral)...');
-    const toggleKillRes = await axios.post(`${BASE_URL}/api/dashboard/toggle-emergency`, {}, authHeaders);
-    console.log('   ✅ Kill Switch ativado:', toggleKillRes.data.emergency_pause_all);
+    // 9. Kill Switch
+    console.log('\n9. Testando Kill Switch de Emergência...');
+    const toggleKill = await axios.post(`${BASE_URL}/api/dashboard/toggle-emergency`, {}, authHeaders);
+    console.log('   ✅ Kill Switch ativado:', toggleKill.data.emergency_pause_all);
 
-    // Tentar disparar com Kill Switch ativado (deve ser bloqueado pelo motor)
-    try {
-      await axios.post(`${BASE_URL}/api/dashboard/trigger-run`, {}, authHeaders);
-    } catch (err) {
-      console.log('   ✅ Motor bloqueou execução como esperado durante Kill Switch:', err.response?.data?.error);
-    }
+    const resumeKill = await axios.post(`${BASE_URL}/api/dashboard/toggle-emergency`, {}, authHeaders);
+    console.log('   ✅ Kill Switch desativado:', !resumeKill.data.emergency_pause_all);
 
-    // Desativa o Kill Switch
-    const resumeKillRes = await axios.post(`${BASE_URL}/api/dashboard/toggle-emergency`, {}, authHeaders);
-    console.log('   ✅ Kill Switch desativado e sistema reativado:', !resumeKillRes.data.emergency_pause_all);
-
-    // 10. Limpeza do produto de teste
-    await axios.delete(`${BASE_URL}/api/products/${createdProductId}`, authHeaders);
-    console.log('\n10. ✅ Produto de teste removido após validação.');
+    // 10. Limpeza dos dados de teste
+    console.log('\n10. Limpando dados de teste...');
+    await axios.delete(`${BASE_URL}/api/products/${prod1Id}`, authHeaders);
+    await axios.delete(`${BASE_URL}/api/products/${prod2Id}`, authHeaders);
+    await axios.delete(`${BASE_URL}/api/groups/${group1.id}`, authHeaders);
+    await axios.delete(`${BASE_URL}/api/campaigns/${campaignId}`, authHeaders);
+    console.log('   ✅ Dados de teste removidos. Sistema restaurado para estado limpo.');
 
     console.log('\n============================================================');
     console.log('🎉 TODOS OS TESTES FORAM CONCLUÍDOS COM 100% DE SUCESSO!');

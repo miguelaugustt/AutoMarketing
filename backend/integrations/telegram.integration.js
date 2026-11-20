@@ -47,17 +47,37 @@ class TelegramIntegration {
   }
 
   /**
-   * Consulta os dados do grupo/canal e status do bot no grupo
+   * Consulta os dados do grupo/canal e status real do bot no grupo
+   * Determina automaticamente status de autorização e permissões de postagem
    */
   async checkGroupAccess(chatId, customToken = null) {
     const token = this.getToken(customToken);
-    if (!token) {
+    const simulationMode = process.env.SIMULATION_MODE === 'true';
+
+    // Se estiver em modo de simulação explícito
+    if (simulationMode) {
       return {
         success: true,
         simulated: true,
         canPost: true,
-        chatTitle: 'Grupo Simulado (Sem Token)',
-        status: 'authorized'
+        authorization_status: 'authorized',
+        advertising_permission: true,
+        automation_permission: true,
+        chatTitle: 'Grupo Simulado (Modo Simulação)',
+        message: 'Permissões autorizadas automaticamente em Modo Simulação.'
+      };
+    }
+
+    // Se não houver token configurado no sistema
+    if (!token) {
+      return {
+        success: false,
+        simulated: true,
+        canPost: false,
+        authorization_status: 'pending',
+        advertising_permission: false,
+        automation_permission: false,
+        error: 'Token do Telegram não configurado nas Configurações do Sistema. Configure o token para validação automática com o Telegram.'
       };
     }
 
@@ -65,7 +85,14 @@ class TelegramIntegration {
       // 1. Obtém dados do bot
       const meRes = await this.getMe(token);
       if (!meRes.success) {
-        return { success: false, error: meRes.error };
+        return {
+          success: false,
+          canPost: false,
+          authorization_status: 'pending',
+          advertising_permission: false,
+          automation_permission: false,
+          error: `Falha ao validar bot: ${meRes.error}`
+        };
       }
       const botId = meRes.bot.id;
 
@@ -76,7 +103,14 @@ class TelegramIntegration {
       });
 
       if (!chatRes.data?.ok) {
-        return { success: false, error: 'Chat não encontrado ou bot não possui acesso.' };
+        return {
+          success: false,
+          canPost: false,
+          authorization_status: 'unavailable',
+          advertising_permission: false,
+          automation_permission: false,
+          error: 'Comunidade não encontrada ou o bot ainda não foi adicionado ao chat.'
+        };
       }
 
       const chatInfo = chatRes.data.result;
@@ -88,17 +122,46 @@ class TelegramIntegration {
       });
 
       if (!memberRes.data?.ok) {
-        return { success: false, error: 'Não foi possível verificar status de membro do bot.' };
+        return {
+          success: false,
+          canPost: false,
+          authorization_status: 'unavailable',
+          advertising_permission: false,
+          automation_permission: false,
+          error: 'Não foi possível verificar status de membro do bot no grupo.'
+        };
       }
 
       const member = memberRes.data.result;
       const status = member.status; // 'creator', 'administrator', 'member', 'restricted', 'left', 'kicked'
 
       let canPost = false;
+      let authStatus = 'unauthorized';
+
       if (status === 'creator' || status === 'administrator') {
-        canPost = member.can_post_messages !== false && member.can_send_messages !== false;
+        const canPostMessages = member.can_post_messages !== false && member.can_send_messages !== false;
+        if (canPostMessages) {
+          canPost = true;
+          authStatus = 'authorized';
+        } else {
+          canPost = false;
+          authStatus = 'unauthorized';
+        }
       } else if (status === 'member') {
-        canPost = true;
+        // Em canais apenas administradores podem postar
+        if (chatInfo.type === 'channel') {
+          canPost = false;
+          authStatus = 'unauthorized';
+        } else {
+          canPost = true;
+          authStatus = 'authorized';
+        }
+      } else if (status === 'kicked' || status === 'left') {
+        canPost = false;
+        authStatus = 'unavailable';
+      } else if (status === 'restricted') {
+        canPost = Boolean(member.can_send_messages);
+        authStatus = canPost ? 'authorized' : 'blocked';
       }
 
       return {
@@ -107,14 +170,24 @@ class TelegramIntegration {
         chatTitle: chatInfo.title || chatInfo.username || chatId,
         chatType: chatInfo.type,
         botStatus: status,
-        canPost: canPost
+        canPost: canPost,
+        authorization_status: authStatus,
+        advertising_permission: canPost,
+        automation_permission: canPost,
+        message: canPost
+          ? `Bot verificado como ${status} com permissão de publicação confirmada.`
+          : `Bot encontrado no chat (${status}), mas sem permissão suficiente para postar mensagens.`
       };
     } catch (error) {
       const errMsg = error.response?.data?.description || error.message;
       return {
         success: false,
         simulated: false,
-        error: `Falha ao verificar grupo (${chatId}): ${errMsg}`
+        canPost: false,
+        authorization_status: 'unavailable',
+        advertising_permission: false,
+        automation_permission: false,
+        error: `Falha na verificação com o Telegram: ${errMsg}`
       };
     }
   }
@@ -126,9 +199,9 @@ class TelegramIntegration {
     const token = this.getToken(customToken);
     const simulationMode = process.env.SIMULATION_MODE === 'true';
 
-    // Se estiver em modo de simulação ou sem token configurado, simula o envio com sucesso
+    // Se estiver em modo de simulação ou sem token configurado, simula o envio
     if (!token || simulationMode) {
-      console.log(`[Telegram Simulado] Mensagem enviada para ${chatId}: \n${text.substring(0, 100)}...`);
+      console.log(`[Telegram Simulado] Mensagem para ${chatId}: \n${text.substring(0, 100)}...`);
       return {
         success: true,
         simulated: true,

@@ -7,120 +7,11 @@ const crypto = require('crypto');
 const DATA_DIR = path.join(__dirname, '..', '..', 'data');
 const LOCAL_DB_PATH = path.join(DATA_DIR, 'local_db.json');
 
-// Inicialização de sementes padrão para o banco local
+// Estado inicial limpo (sem produtos, grupos, campanhas ou histórico pré-preenchidos)
 const INITIAL_DB_STATE = {
-  products: [
-    {
-      id: '11111111-1111-1111-1111-111111111111',
-      name: 'Curso Mestres da Renda Extra',
-      description: 'Treinamento completo sobre modelos comprovados de prestação de serviços digitais e renda complementar.',
-      affiliate_url: 'https://kiwify.app/renda-extra-demo?af=auto1',
-      category: 'Educação Financeira',
-      platform: 'Kiwify',
-      promotional_text: 'Aprenda métodos práticos e éticos para construir uma renda complementar sem sair de casa.',
-      active: true,
-      created_at: new Date(Date.now() - 86400000 * 5).toISOString()
-    },
-    {
-      id: '22222222-2222-2222-2222-222222222222',
-      name: 'Guia Produtividade Máxima',
-      description: 'E-book e templates Notion com metodologia de organização pessoal e gestão de tempo.',
-      affiliate_url: 'https://kiwify.app/produtividade-demo?af=auto2',
-      category: 'Desenvolvimento Pessoal',
-      platform: 'Kiwify',
-      promotional_text: 'Transforme sua rotina com um sistema testado de foco, priorização e organização diária.',
-      active: true,
-      created_at: new Date(Date.now() - 86400000 * 4).toISOString()
-    },
-    {
-      id: '33333333-3333-3333-3333-333333333333',
-      name: 'Academia do Tráfego Pago',
-      description: 'Aulas diretas ao ponto sobre anúncios em Meta Ads e Google Ads para prestadores de serviço.',
-      affiliate_url: 'https://kiwify.app/trafego-pago-demo?af=auto3',
-      category: 'Marketing Digital',
-      platform: 'Kiwify',
-      promotional_text: 'Domine as ferramentas oficiais de anúncios e atraia clientes qualificados com previsibilidade.',
-      active: true,
-      created_at: new Date(Date.now() - 86400000 * 3).toISOString()
-    },
-    {
-      id: '44444444-4444-4444-4444-444444444444',
-      name: 'Manual do Copywriting Ético',
-      description: 'Modelos e estruturas de comunicação persuasiva e autêntica para vendas online.',
-      affiliate_url: 'https://kiwify.app/copywriting-demo?af=auto4',
-      category: 'Vendas e Copywriting',
-      platform: 'Kiwify',
-      promotional_text: 'Aprenda a comunicar o valor real do seu produto com clareza e autoridade.',
-      active: true,
-      created_at: new Date(Date.now() - 86400000 * 2).toISOString()
-    }
-  ],
-  groups: [
-    {
-      id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-      name: 'Comunidade Empreendedores Digitais VIP',
-      invite_url: 'https://t.me/empreendedores_demo',
-      platform: 'Telegram',
-      external_group_id: '-1001987654321',
-      authorization_status: 'authorized',
-      advertising_permission: true,
-      automation_permission: true,
-      last_publication_at: null,
-      active: true,
-      created_at: new Date(Date.now() - 86400000 * 5).toISOString()
-    },
-    {
-      id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-      name: 'Clube de Afiliados e Networking',
-      invite_url: 'https://t.me/afiliados_networking_demo',
-      platform: 'Telegram',
-      external_group_id: '-1001876543210',
-      authorization_status: 'authorized',
-      advertising_permission: true,
-      automation_permission: true,
-      last_publication_at: null,
-      active: true,
-      created_at: new Date(Date.now() - 86400000 * 4).toISOString()
-    },
-    {
-      id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
-      name: 'Grupo Estudos de Marketing (Moderação Estrita)',
-      invite_url: 'https://t.me/marketing_estudos_demo',
-      platform: 'Telegram',
-      external_group_id: '-1001765432109',
-      authorization_status: 'pending',
-      advertising_permission: false,
-      automation_permission: false,
-      last_publication_at: null,
-      active: true,
-      created_at: new Date(Date.now() - 86400000 * 2).toISOString()
-    },
-    {
-      id: 'dddddddd-dddd-dddd-dddd-dddddddddddd',
-      name: 'Fórum Geral de Negócios (Sem Divulgação)',
-      invite_url: 'https://t.me/negocios_geral_demo',
-      platform: 'Telegram',
-      external_group_id: '-1001654321098',
-      authorization_status: 'unauthorized',
-      advertising_permission: false,
-      automation_permission: false,
-      last_publication_at: null,
-      active: false,
-      created_at: new Date(Date.now() - 86400000 * 1).toISOString()
-    }
-  ],
-  campaigns: [
-    {
-      id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
-      name: 'Campanha Rotação Inteligente de Afiliados',
-      product_id: null, // Rotação aleatória automática
-      message_template: '{Está procurando uma maneira prática de se qualificar?|Quer conhecer novas oportunidades de aprendizado?|Se você busca materiais relevantes para sua carreira, confira:}\n\n📌 *{product_name}*\n_{product_description}_\n\n💡 *Destaque:* {promotional_text}\n👉 Saiba mais no link oficial: {affiliate_url}\n\n#aprendizado #oportunidade #desenvolvimento',
-      frequency_hours: 24,
-      status: 'active',
-      start_at: new Date().toISOString(),
-      created_at: new Date().toISOString()
-    }
-  ],
+  products: [],
+  groups: [],
+  campaigns: [],
   publications: [],
   settings: {
     emergency_pause_all: 'false',
@@ -152,7 +43,7 @@ class Database {
         this.isSupabaseEnabled = false;
       }
     } else {
-      console.log('[Database] Modo de armazenamento local ativo (Supabase não configurado em .env).');
+      console.log('[Database] Modo de armazenamento local ativo.');
       this.isSupabaseEnabled = false;
       this.ensureLocalDb();
     }
@@ -164,7 +55,7 @@ class Database {
     }
     if (!fs.existsSync(LOCAL_DB_PATH)) {
       fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(INITIAL_DB_STATE, null, 2), 'utf-8');
-      console.log('[Database] Banco local inicializado em:', LOCAL_DB_PATH);
+      console.log('[Database] Banco local limpo inicializado em:', LOCAL_DB_PATH);
     }
   }
 
@@ -406,7 +297,6 @@ class Database {
       const db = this.readLocalDb();
       let list = [...(db.campaigns || [])];
       if (filters.status) list = list.filter(c => c.status === filters.status);
-      // Join de produto no modo local
       return list.map(c => {
         const prod = c.product_id ? db.products.find(p => p.id === c.product_id) : null;
         return { ...c, product: prod };
@@ -508,7 +398,6 @@ class Database {
       if (filters.productId) list = list.filter(p => p.product_id === filters.productId);
       if (filters.campaignId) list = list.filter(p => p.campaign_id === filters.campaignId);
 
-      // Popula relacionamentos
       const populated = list.map(pub => {
         const prod = db.products.find(p => p.id === pub.product_id);
         const grp = db.groups.find(g => g.id === pub.group_id);
@@ -686,12 +575,11 @@ class Database {
       system: {
         emergency_pause_all: isEmergencyPaused,
         simulation_mode: isSimulationMode,
-        database_type: this.isSupabaseEnabled ? 'Supabase (PostgreSQL)' : 'Armazenamento Local Resiliente',
+        database_type: this.isSupabaseEnabled ? 'Supabase (PostgreSQL)' : 'Armazenamento Local',
         status: isEmergencyPaused ? 'PAUSADO (Interrupção Geral)' : 'OPERACIONAL'
       }
     };
   }
 }
 
-// Exporta instância única (Singleton)
 module.exports = new Database();

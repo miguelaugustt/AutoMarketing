@@ -12,6 +12,23 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    // Toggle para visualizar/ocultar senha no login
+    const togglePassBtn = document.getElementById('btn-toggle-password');
+    const passInput = document.getElementById('password');
+    const passIcon = document.getElementById('toggle-password-icon');
+
+    if (togglePassBtn && passInput && passIcon) {
+      togglePassBtn.addEventListener('click', () => {
+        if (passInput.type === 'password') {
+          passInput.type = 'text';
+          passIcon.className = 'bi bi-eye-slash text-white';
+        } else {
+          passInput.type = 'password';
+          passIcon.className = 'bi bi-eye text-secondary';
+        }
+      });
+    }
+
     const loginForm = document.getElementById('login-form');
     if (loginForm) {
       loginForm.addEventListener('submit', async (e) => {

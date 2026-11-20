@@ -40,9 +40,6 @@ class GroupsController {
         invite_url,
         platform,
         external_group_id,
-        authorization_status,
-        advertising_permission,
-        automation_permission,
         active
       } = req.body;
 
@@ -50,23 +47,49 @@ class GroupsController {
         return res.status(400).json({ success: false, error: 'Nome do grupo é obrigatório.' });
       }
 
-      const validStatuses = ['pending', 'authorized', 'unauthorized', 'blocked', 'unavailable'];
-      const status = validStatuses.includes(authorization_status) ? authorization_status : 'pending';
+      if (!external_group_id || !external_group_id.trim()) {
+        return res.status(400).json({ success: false, error: 'ID Externo do grupo (ex: -100...) é obrigatório para validação automática.' });
+      }
+
+      const plat = platform ? platform.trim() : 'Telegram';
+      const extId = external_group_id.trim();
+
+      // Verificação AUTOMÁTICA de permissões com o bot
+      let autoAuthStatus = 'pending';
+      let autoAdvPerm = false;
+      let autoAutoPerm = false;
+      let verificationMessage = 'Verificação pendente.';
+
+      if (plat.toLowerCase() === 'telegram') {
+        const customToken = await db.getSetting('telegram_bot_token');
+        const checkResult = await telegramIntegration.checkGroupAccess(extId, customToken);
+
+        autoAuthStatus = checkResult.authorization_status || 'pending';
+        autoAdvPerm = Boolean(checkResult.advertising_permission);
+        autoAutoPerm = Boolean(checkResult.automation_permission);
+        verificationMessage = checkResult.message || checkResult.error || 'Verificado via Telegram Bot.';
+      } else {
+        // Meta ou outras plataformas
+        autoAuthStatus = 'pending';
+        autoAdvPerm = false;
+        autoAutoPerm = false;
+      }
 
       const group = await db.createGroup({
         name: name.trim(),
         invite_url: invite_url ? invite_url.trim() : '',
-        platform: platform ? platform.trim() : 'Telegram',
-        external_group_id: external_group_id ? external_group_id.trim() : '',
-        authorization_status: status,
-        advertising_permission: Boolean(advertising_permission),
-        automation_permission: Boolean(automation_permission),
+        platform: plat,
+        external_group_id: extId,
+        authorization_status: autoAuthStatus,
+        advertising_permission: autoAdvPerm,
+        automation_permission: autoAutoPerm,
         active: active !== undefined ? Boolean(active) : true
       });
 
       return res.status(201).json({
         success: true,
-        message: 'Grupo cadastrado com sucesso.',
+        message: `Grupo cadastrado! Status determinado automaticamente: ${autoAuthStatus}.`,
+        verificationMessage,
         group
       });
     } catch (error) {
@@ -84,11 +107,13 @@ class GroupsController {
         return res.status(404).json({ success: false, error: 'Grupo não encontrado.' });
       }
 
-      if (updates.authorization_status) {
-        const validStatuses = ['pending', 'authorized', 'unauthorized', 'blocked', 'unavailable'];
-        if (!validStatuses.includes(updates.authorization_status)) {
-          return res.status(400).json({ success: false, error: 'Status de autorização inválido.' });
-        }
+      // Se o ID externo mudou ou foi solicitada re-validação automática
+      if (updates.external_group_id && updates.external_group_id !== existing.external_group_id) {
+        const customToken = await db.getSetting('telegram_bot_token');
+        const checkResult = await telegramIntegration.checkGroupAccess(updates.external_group_id, customToken);
+        updates.authorization_status = checkResult.authorization_status || existing.authorization_status;
+        updates.advertising_permission = Boolean(checkResult.advertising_permission);
+        updates.automation_permission = Boolean(checkResult.automation_permission);
       }
 
       const updated = await db.updateGroup(id, updates);
@@ -121,7 +146,7 @@ class GroupsController {
   }
 
   /**
-   * Testa e verifica a permissão real do Bot no grupo via Telegram API
+   * Testa e atualiza AUTOMATICAMENTE a permissão real do Bot no grupo via Telegram API
    */
   async testPermissions(req, res, next) {
     try {
@@ -141,20 +166,58 @@ class GroupsController {
       const customToken = await db.getSetting('telegram_bot_token');
       const testResult = await telegramIntegration.checkGroupAccess(group.external_group_id, customToken);
 
-      if (testResult.success) {
-        return res.json({
-          success: true,
-          message: testResult.simulated
-            ? 'Acesso verificado (Modo Simulação ou sem token cadastrado).'
-            : 'Permissões verificadas com sucesso no Telegram!',
-          details: testResult
-        });
-      } else {
-        return res.status(400).json({
-          success: false,
-          error: testResult.error
-        });
+      // Atualiza automaticamente o registro no banco com os dados reais retornados
+      const updatedGroup = await db.updateGroup(group.id, {
+        authorization_status: testResult.authorization_status,
+        advertising_permission: testResult.advertising_permission,
+        automation_permission: testResult.automation_permission,
+        active: testResult.canPost
+      });
+
+      return res.json({
+        success: testResult.success,
+        message: testResult.message || testResult.error,
+        group: updatedGroup,
+        details: testResult
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Sincroniza em lote as permissões de TODOS os grupos cadastrados com a API do Telegram
+   */
+  async syncAllPermissions(req, res, next) {
+    try {
+      const groups = await db.getGroups();
+      const customToken = await db.getSetting('telegram_bot_token');
+      const results = [];
+
+      for (const group of groups) {
+        if (group.platform.toLowerCase() === 'telegram' && group.external_group_id) {
+          const testResult = await telegramIntegration.checkGroupAccess(group.external_group_id, customToken);
+          const updated = await db.updateGroup(group.id, {
+            authorization_status: testResult.authorization_status,
+            advertising_permission: testResult.advertising_permission,
+            automation_permission: testResult.automation_permission,
+            active: testResult.canPost
+          });
+          results.push({
+            id: group.id,
+            name: group.name,
+            status: testResult.authorization_status,
+            canPost: testResult.canPost,
+            message: testResult.message || testResult.error
+          });
+        }
       }
+
+      return res.json({
+        success: true,
+        message: `Sincronização concluída para ${results.length} grupos.`,
+        results
+      });
     } catch (error) {
       next(error);
     }
