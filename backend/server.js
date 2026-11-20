@@ -12,6 +12,7 @@ const groupsRoutes = require('./routes/groups.routes');
 const campaignsRoutes = require('./routes/campaigns.routes');
 const publicationsRoutes = require('./routes/publications.routes');
 const settingsRoutes = require('./routes/settings.routes');
+const prospectorRoutes = require('./routes/prospector.routes');
 
 // Importação de middlewares e serviços
 const errorHandler = require('./middleware/errorHandler');
@@ -38,6 +39,7 @@ app.use('/api/groups', groupsRoutes);
 app.use('/api/campaigns', campaignsRoutes);
 app.use('/api/publications', publicationsRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/prospector', prospectorRoutes);
 
 // Endpoint de verificação de integridade (Health Check)
 app.get('/api/health', (req, res) => {

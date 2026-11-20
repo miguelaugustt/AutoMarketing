@@ -81,6 +81,19 @@ async function runTests() {
     const syncAllRes = await axios.post(`${BASE_URL}/api/groups/sync-all`, {}, authHeaders);
     console.log('   ✅ Sincronização em lote concluída:', syncAllRes.data.message);
 
+    // 5.1 Teste do Radar de Grupos e Prospecção (Opção Avulsa)
+    console.log('\n5.1 Testando Radar de Grupos e Exportação de Relatório...');
+    const searchProspectRes = await axios.get(`${BASE_URL}/api/prospector/search?keyword=afiliados`, authHeaders);
+    console.log(`   ✅ Radar localizou ${searchProspectRes.data.count} comunidades de afiliados.`);
+
+    const exportCsvRes = await axios.get(`${BASE_URL}/api/prospector/export-csv?keyword=afiliados`, authHeaders);
+    console.log(`   ✅ Relatório CSV gerado com sucesso (${exportCsvRes.data.length} bytes).`);
+
+    const importProspectRes = await axios.post(`${BASE_URL}/api/prospector/import`, {
+      groupData: searchProspectRes.data.groups[0]
+    }, authHeaders);
+    console.log('   ✅ Importação avulsa via Radar:', importProspectRes.data.message);
+
     // 6. Criação de Campanha com Spintax
     console.log('\n6. Testando Criação de Campanha e Geração de Variações...');
     const campRes = await axios.post(`${BASE_URL}/api/campaigns`, {
@@ -131,10 +144,18 @@ async function runTests() {
 
     // 10. Limpeza dos dados de teste
     console.log('\n10. Limpando dados de teste...');
-    await axios.delete(`${BASE_URL}/api/products/${prod1Id}`, authHeaders);
-    await axios.delete(`${BASE_URL}/api/products/${prod2Id}`, authHeaders);
-    await axios.delete(`${BASE_URL}/api/groups/${group1.id}`, authHeaders);
-    await axios.delete(`${BASE_URL}/api/campaigns/${campaignId}`, authHeaders);
+    const allProds = await axios.get(`${BASE_URL}/api/products`, authHeaders);
+    for (const p of allProds.data.products) {
+      await axios.delete(`${BASE_URL}/api/products/${p.id}`, authHeaders);
+    }
+    const allGroups = await axios.get(`${BASE_URL}/api/groups`, authHeaders);
+    for (const g of allGroups.data.groups) {
+      await axios.delete(`${BASE_URL}/api/groups/${g.id}`, authHeaders);
+    }
+    const allCamps = await axios.get(`${BASE_URL}/api/campaigns`, authHeaders);
+    for (const c of allCamps.data.campaigns) {
+      await axios.delete(`${BASE_URL}/api/campaigns/${c.id}`, authHeaders);
+    }
     console.log('   ✅ Dados de teste removidos. Sistema restaurado para estado limpo.');
 
     console.log('\n============================================================');
