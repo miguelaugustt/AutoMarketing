@@ -1,15 +1,26 @@
 /**
  * AUT0MARKETING - Vercel Serverless Function Entry Point
- *
- * Este arquivo exporta o app Express como uma função serverless compatível com a Vercel.
- * O server.js já exporta o app com `module.exports = app`, então basta importá-lo aqui.
  */
 
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
-const app = require('../backend/server');
+let app;
 
-// Na Vercel, não iniciamos o servidor com app.listen()
-// O Vercel gerencia o servidor e chama esta função para cada requisição
+try {
+  app = require('../backend/server');
+} catch (err) {
+  // Criar um app Express mínimo para retornar erro detalhado
+  const express = require('express');
+  app = express();
+  app.use(express.json());
+  app.all('*', (req, res) => {
+    res.status(500).json({
+      error: 'Falha ao carregar o servidor backend',
+      details: err.message,
+      stack: err.stack
+    });
+  });
+}
+
 module.exports = app;
