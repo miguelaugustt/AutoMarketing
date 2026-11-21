@@ -97,21 +97,29 @@ app.post('/api/settings/test-meta', (req, res) => {
 app.get('/api/userbot/status', (req, res) => {
   res.json({
     success: true,
-    connected: false,
-    message: 'Userbot não conectado (modo servidor serverless)'
+    connected: true,
+    phone: '+55 37 99172-3499',
+    username: 'Miguel',
+    message: 'Conectado (modo simulação)'
   });
 });
 
 app.post('/api/userbot/send-code', (req, res) => {
-  res.json({ success: false, error: 'Userbot não disponível no modo serverless' });
+  res.json({
+    success: true,
+    message: 'Código de verificação enviado para o seu Telegram (modo simulação).'
+  });
 });
 
 app.post('/api/userbot/sign-in', (req, res) => {
-  res.json({ success: false, error: 'Userbot não disponível no modo serverless' });
+  res.json({
+    success: true,
+    message: 'Login realizado com sucesso! (modo simulação)'
+  });
 });
 
 app.post('/api/userbot/disconnect', (req, res) => {
-  res.json({ success: true, message: 'Desconectado.' });
+  res.json({ success: true, message: 'Conta desconectada.' });
 });
 
 // ============================================================================
