@@ -66,31 +66,34 @@ app.get('/', (req, res) => {
 // Middleware Central de Erros
 app.use(errorHandler);
 
-// Inicialização do Servidor
-const server = app.listen(PORT, () => {
-  console.log('================================================================');
-  console.log('  🚀 AUT0MARKETING - Plataforma de Automação de Marketing');
-  console.log(`  🌐 Servidor em execução em: http://localhost:${PORT}`);
-  console.log(`  📊 Painel Administrativo:  http://localhost:${PORT}/dashboard.html`);
-  console.log(`  🔑 Credenciais Padrão:     admin / admin123`);
-  console.log(`  💾 Banco de Dados:         ${db.getConnectionInfo().type}`);
-  console.log('================================================================');
+// Inicialização do Servidor (apenas local; no Vercel o app é exportado diretamente)
+if (process.env.VERCEL !== '1') {
+  const server = app.listen(PORT, () => {
+    console.log('================================================================');
+    console.log('  🚀 AUT0MARKETING - Plataforma de Automação de Marketing');
+    console.log(`  🌐 Servidor em execução em: http://localhost:${PORT}`);
+    console.log(`  📊 Painel Administrativo:  http://localhost:${PORT}/dashboard.html`);
+    console.log(`  🔑 Credenciais Padrão:     admin / admin123`);
+    console.log(`  💾 Banco de Dados:         ${db.getConnectionInfo().type}`);
+    console.log('================================================================');
 
-  // Inicializa o motor agendador de tarefas
-  cronScheduler.start();
-});
-
-// Tratamento de encerramento gracioso
-const shutdown = () => {
-  console.log('\n[Servidor] Encerrando processos com segurança...');
-  cronScheduler.stop();
-  server.close(() => {
-    console.log('[Servidor] Encerrado com sucesso.');
-    process.exit(0);
+    // Inicializa o motor agendador de tarefas apenas localmente
+    cronScheduler.start();
   });
-};
 
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+  // Tratamento de encerramento gracioso
+  const shutdown = () => {
+    console.log('\n[Servidor] Encerrando processos com segurança...');
+    cronScheduler.stop();
+    server.close(() => {
+      console.log('[Servidor] Encerrado com sucesso.');
+      process.exit(0);
+    });
+  };
 
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+}
+
+// Exporta o app para uso local e serverless (Vercel)
 module.exports = app;
