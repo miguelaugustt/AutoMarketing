@@ -87,17 +87,36 @@ Antes de usar na Vercel, configure o Supabase:
 
 O agendador interno (`cronScheduler`) não funciona em serverless. Para executar campanhas agendadas automaticamente:
 
-### Opção A: Vercel Cron (recomendado)
+#### Limitação do plano Hobby da Vercel
 
-O `vercel.json` já inclui uma configuração de cron:
+Contas no plano **Hobby (gratuito)** permitem apenas **cron jobs diários** (no máximo 1 vez por dia). Se você precisa de execução mais frequente (ex: a cada 30 minutos), use um serviço externo de cron.
+
+#### Opção A: Vercel Cron (apenas plano Hobby - 1x por dia)
+
+O `vercel.json` já inclui uma configuração de cron diário:
 
 ```json
 "crons": [
   {
     "path": "/api/cron",
-    "schedule": "*/30 * * * *"
+    "schedule": "0 0 * * *"
   }
 ]
+```
+
+Isso executa o endpoint `/api/cron` uma vez por dia à meia-noite (UTC).
+
+#### Opção B: Cron Externo (recomendado para frequência maior)
+
+Use um serviço gratuito como [cron-job.org](https://cron-job.org) ou GitHub Actions para fazer uma requisição HTTP para:
+
+```
+POST https://seu-dominio.vercel.app/api/cron
+```
+
+Com cabeçalho de autorização:
+```
+Authorization: Bearer SEU_CRON_SECRET
 ```
 
 Você precisará criar um endpoint `/api/cron` que dispare o processamento das campanhas:
@@ -108,7 +127,7 @@ const app = require('../backend/server');
 const distributionService = require('../backend/services/distribution.service');
 
 module.exports = async (req, res) => {
-  // Verificar token de segurança (opcional)
+  // Verificar token de segurança
   const auth = req.headers.authorization;
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: 'Não autorizado' });
@@ -124,13 +143,6 @@ module.exports = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-```
-
-### Opção B: Cron Externo (GitHub Actions, etc.)
-
-Configure um job que faça uma requisição HTTP para:
-```
-POST https://seu-dominio.vercel.app/api/cron
 ```
 
 ---
