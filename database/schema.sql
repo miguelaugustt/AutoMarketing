@@ -67,6 +67,8 @@ CREATE TABLE IF NOT EXISTS publications (
     product_id UUID REFERENCES products(id) ON DELETE CASCADE,
     group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
     message TEXT NOT NULL,
+    image_url TEXT,
+    video_url TEXT,
     status VARCHAR(50) NOT NULL DEFAULT 'scheduled',
     scheduled_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
     published_at TIMESTAMP WITH TIME ZONE,
