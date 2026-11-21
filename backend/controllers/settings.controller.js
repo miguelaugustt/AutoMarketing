@@ -1,5 +1,7 @@
 const db = require('../database/db');
 const telegramIntegration = require('../integrations/telegram.integration');
+const metaIntegration = require('../integrations/meta.integration');
+const axios = require('axios');
 
 class SettingsController {
   async getSettings(req, res, next) {
@@ -34,7 +36,8 @@ class SettingsController {
         'emergency_pause_all',
         'default_frequency_hours',
         'simulation_mode',
-        'telegram_bot_token'
+        'telegram_bot_token',
+        'meta_page_access_token'
       ];
 
       for (const [key, val] of Object.entries(updates)) {
@@ -71,6 +74,51 @@ class SettingsController {
         return res.status(400).json({
           success: false,
           error: result.error
+        });
+      }
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async testMetaToken(req, res, next) {
+    try {
+      const { token } = req.body;
+      const testToken = token || process.env.META_PAGE_ACCESS_TOKEN || '';
+
+      if (!testToken) {
+        return res.status(400).json({
+          success: false,
+          error: 'Page Access Token do Facebook não informado.'
+        });
+      }
+
+      try {
+        const response = await axios.get('https://graph.facebook.com/v19.0/me', {
+          params: {
+            access_token: testToken,
+            fields: 'id,name'
+          },
+          timeout: 8000
+        });
+
+        if (response.data && response.data.id) {
+          return res.json({
+            success: true,
+            message: `Token válido! Usuário: ${response.data.name || response.data.id}`,
+            user: response.data
+          });
+        }
+
+        return res.status(400).json({
+          success: false,
+          error: 'Resposta inválida da API do Facebook.'
+        });
+      } catch (error) {
+        const errMsg = error.response?.data?.error?.message || error.message;
+        return res.status(400).json({
+          success: false,
+          error: `Erro Facebook: ${errMsg}`
         });
       }
     } catch (error) {

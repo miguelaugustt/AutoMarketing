@@ -154,6 +154,8 @@ _{product_description}_
 
 #aprendizado #oportunidade #{category}`;
   document.getElementById('campaign-status').checked = true;
+  document.getElementById('campaign-image-url').value = '';
+  document.getElementById('campaign-video-url').value = '';
 
   if (campaignModalInstance) campaignModalInstance.show();
 }
@@ -169,6 +171,8 @@ function openEditModal(id) {
   document.getElementById('campaign-product-id').value = c.product_id || '';
   document.getElementById('campaign-template').value = c.message_template;
   document.getElementById('campaign-status').checked = c.status === 'active';
+  document.getElementById('campaign-image-url').value = c.image_url || '';
+  document.getElementById('campaign-video-url').value = c.video_url || '';
 
   if (campaignModalInstance) campaignModalInstance.show();
 }
@@ -184,7 +188,7 @@ function insertTag(tag) {
   textarea.selectionStart = textarea.selectionEnd = start + tag.length;
 }
 
-async function handleSaveCampaign(e) {
+  async function handleSaveCampaign(e) {
   e.preventDefault();
   const id = document.getElementById('campaign-id').value;
   const payload = {
@@ -231,14 +235,23 @@ async function toggleCampaignStatus(id) {
   }
 }
 
-async function triggerCampaign(id) {
+  async function triggerCampaign(id) {
   if (!confirm('Deseja disparar esta campanha imediatamente para os grupos autorizados que cumpriram o intervalo de 24h?')) {
     return;
   }
 
   try {
     showToast('Processando disparo da campanha...', 'info');
-    const res = await api.post(`/campaigns/${id}/trigger`, { force: true });
+
+    const imageUrl = document.getElementById('campaign-image-url')?.value.trim() || null;
+    const videoUrl = document.getElementById('campaign-video-url')?.value.trim() || null;
+
+    const res = await api.post(`/campaigns/${id}/trigger`, {
+      ignoreInterval: true,
+      force: true,
+      image_url: imageUrl,
+      video_url: videoUrl
+    });
     if (res.success) {
       showToast(`Executado! ${res.result.processed} grupos processados.`, 'success', 5000);
       loadCampaigns();

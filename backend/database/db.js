@@ -402,12 +402,14 @@ class Database {
         const prod = db.products.find(p => p.id === pub.product_id);
         const grp = db.groups.find(g => g.id === pub.group_id);
         const camp = db.campaigns.find(c => c.id === pub.campaign_id);
-        return {
-          ...pub,
-          product: prod ? { name: prod.name, platform: prod.platform, affiliate_url: prod.affiliate_url } : null,
-          group: grp ? { name: grp.name, platform: grp.platform, external_group_id: grp.external_group_id } : null,
-          campaign: camp ? { name: camp.name } : null
-        };
+      return {
+        ...pub,
+        image_url: pub.image_url || null,
+        video_url: pub.video_url || null,
+        product: prod ? { name: prod.name, platform: prod.platform, affiliate_url: prod.affiliate_url } : null,
+        group: grp ? { name: grp.name, platform: grp.platform, external_group_id: grp.external_group_id } : null,
+        campaign: camp ? { name: camp.name } : null
+      };
       });
 
       populated.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -445,6 +447,8 @@ class Database {
       product_id: pubData.product_id,
       group_id: pubData.group_id,
       message: pubData.message,
+      image_url: pubData.image_url || null,
+      video_url: pubData.video_url || null,
       status: pubData.status || 'scheduled',
       scheduled_at: pubData.scheduled_at || new Date().toISOString(),
       published_at: pubData.published_at || null,
@@ -476,6 +480,21 @@ class Database {
       db.publications[index] = { ...db.publications[index], ...updates };
       this.writeLocalDb(db);
       return db.publications[index];
+    }
+  }
+
+  async deletePublication(id) {
+    if (this.isSupabaseEnabled) {
+      const { error } = await this.supabase.from('publications').delete().eq('id', id);
+      if (error) throw error;
+      return true;
+    } else {
+      const db = this.readLocalDb();
+      const index = db.publications.findIndex(p => p.id === id);
+      if (index === -1) return false;
+      db.publications.splice(index, 1);
+      this.writeLocalDb(db);
+      return true;
     }
   }
 

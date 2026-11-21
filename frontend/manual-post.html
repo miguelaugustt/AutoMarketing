@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AUT0MARKETING - Postagem Manual</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="app-container">
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+  <aside class="app-sidebar" id="appSidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon"><i class="bi bi-broadcast"></i></div>
+      <div>
+        <h2 class="brand-name">AUT0MARKETING</h2>
+        <span class="brand-tag">v1.0 • Afiliados</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">Menu Principal</div>
+      <a href="dashboard.html" class="nav-link"><i class="bi bi-grid-1x2"></i> Dashboard</a>
+      <a href="products.html" class="nav-link"><i class="bi bi-box-seam"></i> Produtos Afiliados</a>
+      <a href="groups.html" class="nav-link"><i class="bi bi-people"></i> Grupos & Canais</a>
+      <a href="campaigns.html" class="nav-link"><i class="bi bi-megaphone"></i> Campanhas</a>
+      <a href="manual-post.html" class="nav-link active"><i class="bi bi-send"></i> Postagem Manual</a>
+      <a href="history.html" class="nav-link"><i class="bi bi-clock-history"></i> Histórico & Auditoria</a>
+
+      <div class="nav-section-title mt-4">Sistema</div>
+      <a href="settings.html" class="nav-link"><i class="bi bi-sliders"></i> Configurações & API</a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-profile">
+        <div class="user-info">
+          <div class="user-avatar">ADM</div>
+          <div>
+            <div class="small fw-bold text-white" id="current-user-display">Administrador</div>
+            <div class="text-muted" style="font-size: 0.7rem;">Sessão Ativa</div>
+          </div>
+        </div>
+        <button id="btn-logout" class="btn btn-sm btn-outline-danger border-0" title="Sair do Sistema">
+          <i class="bi bi-box-arrow-right"></i>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="app-main">
+    <header class="app-header">
+      <button class="mobile-menu-toggle" id="mobileMenuToggle" title="Abrir Menu">
+        <i class="bi bi-list"></i>
+      </button>
+      <button class="theme-toggle" id="themeToggle" title="Alternar Tema">
+        <i class="bi bi-moon-stars"></i>
+      </button>
+      <div class="header-title-box">
+        <h1>Postagem Manual</h1>
+        <p>Envie mensagens diretamente para um grupo ou canal selecionado</p>
+      </div>
+    </header>
+
+    <div class="app-content">
+      <div class="row g-4">
+        <div class="col-12 col-lg-8">
+          <!-- FORMULÁRIO DE POSTAGEM MANUAL -->
+          <div class="glass-card">
+            <div class="glass-card-header">
+              <h2 class="glass-card-title">
+                <i class="bi bi-send text-primary"></i> Nova Postagem Manual
+              </h2>
+            </div>
+
+            <form id="form-manual-post">
+              <input type="hidden" id="manual-post-id">
+
+              <div class="mb-3">
+                <label for="manual-post-group" class="form-label">Selecionar Grupo / Canal *</label>
+                <select id="manual-post-group" class="form-select" required>
+                  <option value="">-- Escolha um grupo ou canal --</option>
+                </select>
+                <span class="small text-muted">Somente grupos cadastrados aparecerão aqui.</span>
+              </div>
+
+              <div class="mb-3">
+                <label for="manual-post-message" class="form-label">Mensagem *</label>
+                <textarea id="manual-post-message" rows="6" class="form-control font-monospace" placeholder="Escreva sua mensagem aqui..." required></textarea>
+                <span class="small text-muted">Use markdown para formatação: *negrito*, _itálico_, [link](url)</span>
+              </div>
+
+              <div class="mb-3">
+                <label for="manual-post-image-url" class="form-label">Imagem (Opcional)</label>
+                <input type="url" id="manual-post-image-url" class="form-control font-monospace mb-2" placeholder="https://exemplo.com/imagem.jpg">
+                <span class="small text-muted d-block mb-2">Ou escolha um arquivo do seu computador:</span>
+                <input type="file" id="manual-post-image-file" class="form-control" accept="image/*">
+                <span class="small text-muted">Formatos aceitos: JPG, PNG, WEBP</span>
+              </div>
+
+              <div class="mb-3">
+                <label for="manual-post-video-url" class="form-label">Vídeo (Opcional)</label>
+                <input type="url" id="manual-post-video-url" class="form-control font-monospace mb-2" placeholder="https://exemplo.com/video.mp4">
+                <span class="small text-muted d-block mb-2">Ou escolha um arquivo do seu computador:</span>
+                <input type="file" id="manual-post-video-file" class="form-control" accept="video/*">
+                <span class="small text-muted">Formatos aceitos: MP4, MOV, WEBM</span>
+              </div>
+
+              <div class="mb-4 p-3 rounded bg-dark border border-secondary border-opacity-25">
+                <h6 class="text-white fw-bold mb-3"><i class="bi bi-clock me-1"></i> Agendamento</h6>
+
+                <div class="form-check form-switch mb-2">
+                  <input class="form-check-input" type="checkbox" id="manual-post-send-now">
+                  <label class="form-check-label text-white fw-semibold small" for="manual-post-send-now">
+                    Enviar agora (publicação imediata)
+                  </label>
+                </div>
+
+                <div id="manual-post-schedule-section" class="mt-2">
+                  <label for="manual-post-scheduled-at" class="form-label small text-secondary">Data e Hora do Agendamento</label>
+                  <input type="datetime-local" id="manual-post-scheduled-at" class="form-control form-control-sm">
+                </div>
+              </div>
+
+              <div id="manual-post-result" class="alert d-none small font-monospace mt-3"></div>
+
+              <button type="submit" id="btn-send-manual-post" class="btn btn-primary-custom w-100">
+                <i class="bi bi-send me-1"></i> Enviar Postagem
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+          <!-- INFO PANEL -->
+          <div class="glass-card">
+            <div class="glass-card-header">
+              <h2 class="glass-card-title">
+                <i class="bi bi-info-circle text-info"></i> Como Usar
+              </h2>
+            </div>
+            <div class="p-3">
+              <ol class="small text-secondary ps-3 mb-0">
+                <li class="mb-2"><strong>Selecione o grupo</strong> cadastrado em Grupos & Canais.</li>
+                <li class="mb-2"><strong>Digite a mensagem</strong> que será publicada.</li>
+                <li class="mb-2"><strong>Opcional:</strong> adicione link de imagem ou vídeo.</li>
+                <li class="mb-2"><strong>Escolha:</strong> enviar agora ou agendar para depois.</li>
+                <li class="mb-2"><strong>Clique em "Enviar Postagem"</strong> para confirmar.</li>
+              </ol>
+              <div class="mt-3 p-3 rounded bg-dark border border-secondary border-opacity-25">
+                <h6 class="text-white fw-bold small mb-2"><i class="bi bi-telegram text-info me-1"></i> Requisitos Telegram:</h6>
+                <ul class="small text-secondary ps-3 mb-0">
+                  <li>O grupo deve estar cadastrado com ID numérico (ex: -100...).</li>
+                  <li>Configure o token do BotFather ou faça login via Userbot em Configurações & API.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/manual-post.js"></script>
+<script>
+  const sidebar = document.getElementById('appSidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  const toggle = document.getElementById('mobileMenuToggle');
+  const themeToggle = document.getElementById('themeToggle');
+  const htmlEl = document.documentElement;
+
+  function openSidebar() { sidebar.classList.add('show'); overlay.classList.add('show'); sidebar.classList.remove('collapsed'); }
+  function closeSidebar() { sidebar.classList.remove('show'); overlay.classList.remove('show'); sidebar.classList.add('collapsed'); }
+  if (toggle) toggle.addEventListener('click', openSidebar);
+  if (overlay) overlay.addEventListener('click', closeSidebar);
+
+  const savedTheme = localStorage.getItem('automarketing_theme') || 'dark';
+  if (savedTheme === 'light') {
+    htmlEl.setAttribute('data-theme', 'light');
+    if (themeToggle) themeToggle.innerHTML = '<i class="bi bi-sun-fill"></i>';
+  }
+  if (themeToggle) {
+    themeToggle.addEventListener('click', () => {
+      const isLight = htmlEl.getAttribute('data-theme') === 'light';
+      if (isLight) {
+        htmlEl.removeAttribute('data-theme');
+        localStorage.setItem('automarketing_theme', 'dark');
+        themeToggle.innerHTML = '<i class="bi bi-moon-stars"></i>';
+      } else {
+        htmlEl.setAttribute('data-theme', 'light');
+        localStorage.setItem('automarketing_theme', 'light');
+        themeToggle.innerHTML = '<i class="bi bi-sun-fill"></i>';
+      }
+    });
+  }
+</script>
+</body>
+</html>

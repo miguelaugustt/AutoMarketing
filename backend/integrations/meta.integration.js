@@ -56,12 +56,12 @@ class MetaIntegration {
   }
 
   /**
-   * Publica mensagem no Feed da Página Oficial
+   * Publica mensagem no Feed da Página Oficial (suporta imagem e vídeo opcionais)
    */
-  async publishToPage(pageId, message, link = null) {
+  async publishToPage(pageId, message, link = null, image_url = null, video_url = null) {
     const token = this.getAccessToken();
     if (!token || process.env.SIMULATION_MODE === 'true') {
-      console.log(`[Meta Simulado] Publicando na Página ${pageId}: ${message.substring(0, 100)}...`);
+      console.log(`[Meta Simulado] Publicando na Página ${pageId}: ${message.substring(0, 100)}...${image_url ? ` [IMAGEM: ${image_url}]` : ''}${video_url ? ` [VÍDEO: ${video_url}]` : ''}`);
       return {
         success: true,
         simulated: true,
@@ -75,6 +75,8 @@ class MetaIntegration {
         access_token: token
       };
       if (link) payload.link = link;
+      if (image_url) payload.url = image_url;
+      if (video_url) payload.file_url = video_url;
 
       const response = await axios.post(`${this.baseUrl}/${pageId}/feed`, payload, { timeout: 12000 });
       return {

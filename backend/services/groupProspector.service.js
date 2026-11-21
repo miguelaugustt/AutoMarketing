@@ -8,15 +8,17 @@ const telegramIntegration = require('../integrations/telegram.integration');
  * de links de afiliados e divulgação de produtos digitais é explicitamente permitida.
  */
 
-// Catálogo indexado de comunidades e nichos de divulgação aberta
+// Catálogo indexado de comunidades e nichos de divulgação aberta no Telegram
+// ATENÇÃO: Substitua os usernames abaixo por grupos reais que você saiba que existem no Telegram.
+// O Telegram não possui API pública de busca de grupos; é necessário conhecer o link ou username exato.
 const PROSPECT_COMMUNITIES_DATABASE = [
   {
     name: 'Divulgação de Afiliados & Links Brasil',
     platform: 'Telegram',
-    username: 'divulgacao_afiliados_br',
-    invite_url: 'https://t.me/divulgacao_afiliados_br',
+    username: 'divulgacao_afiliados_brasil',
+    invite_url: 'https://t.me/divulgacao_afiliados_brasil',
     category: 'Marketing de Afiliados',
-    approx_members: 14200,
+    approx_members: 0,
     allows_links: true,
     rules_summary: 'Divulgação livre de links de infoprodutos (Kiwify, Hotmart). Proibido conteúdo adulto.',
     keywords: ['afiliados', 'divulgação', 'kiwify', 'hotmart', 'links', 'vendas']
@@ -24,10 +26,10 @@ const PROSPECT_COMMUNITIES_DATABASE = [
   {
     name: 'Grupo de Divulgação Geral & Renda Extra',
     platform: 'Telegram',
-    username: 'divulgue_aqui_geral',
-    invite_url: 'https://t.me/divulgue_aqui_geral',
+    username: 'divulgue_aqui_brasil',
+    invite_url: 'https://t.me/divulgue_aqui_brasil',
     category: 'Renda Extra & Oportunidades',
-    approx_members: 9800,
+    approx_members: 0,
     allows_links: true,
     rules_summary: 'Permitido postar links promocionais uma vez a cada 24 horas por usuário.',
     keywords: ['renda extra', 'divulgação', 'links', 'oportunidades', 'negocios']
@@ -35,10 +37,10 @@ const PROSPECT_COMMUNITIES_DATABASE = [
   {
     name: 'Networking & Afiliados Kiwify Oficial',
     platform: 'Telegram',
-    username: 'kiwify_afiliados_networking',
-    invite_url: 'https://t.me/kiwify_afiliados_networking',
+    username: 'kiwify_afiliados_brasil',
+    invite_url: 'https://t.me/kiwify_afiliados_brasil',
     category: 'Marketing de Afiliados',
-    approx_members: 22500,
+    approx_members: 0,
     allows_links: true,
     rules_summary: 'Troca de experiências e divulgação ética de produtos autorizados.',
     keywords: ['kiwify', 'afiliados', 'marketing', 'networking', 'cursos']
@@ -46,10 +48,10 @@ const PROSPECT_COMMUNITIES_DATABASE = [
   {
     name: 'Feirão de Links & Anúncios Digitais',
     platform: 'Telegram',
-    username: 'feirao_links_digitais',
-    invite_url: 'https://t.me/feirao_links_digitais',
+    username: 'feirao_links_digitais_br',
+    invite_url: 'https://t.me/feirao_links_digitais_br',
     category: 'Classificados & Vendas',
-    approx_members: 7300,
+    approx_members: 0,
     allows_links: true,
     rules_summary: 'Canal aberto para anúncios de produtos digitais, e-books e cursos.',
     keywords: ['anúncios', 'divulgação', 'links', 'vendas', 'produtos']
@@ -60,7 +62,7 @@ const PROSPECT_COMMUNITIES_DATABASE = [
     username: 'empreendedores_trafego_br',
     invite_url: 'https://t.me/empreendedores_trafego_br',
     category: 'Marketing Digital',
-    approx_members: 18900,
+    approx_members: 0,
     allows_links: true,
     rules_summary: 'Permitido compartilhamento de links de materiais educativos e ferramentas.',
     keywords: ['marketing digital', 'empreendedorismo', 'trafego', 'afiliados', 'cursos']
@@ -68,10 +70,10 @@ const PROSPECT_COMMUNITIES_DATABASE = [
   {
     name: 'Comunidade Hotmart & Eduzz Afiliados',
     platform: 'Telegram',
-    username: 'hotmart_eduzz_divulga',
-    invite_url: 'https://t.me/hotmart_eduzz_divulga',
+    username: 'hotmart_eduzz_afiliados_br',
+    invite_url: 'https://t.me/hotmart_eduzz_afiliados_br',
     category: 'Marketing de Afiliados',
-    approx_members: 11400,
+    approx_members: 0,
     allows_links: true,
     rules_summary: 'Espaço para divulgação de ofertas de plataformas de afiliados.',
     keywords: ['hotmart', 'eduzz', 'afiliados', 'divulgação', 'links']
@@ -79,10 +81,10 @@ const PROSPECT_COMMUNITIES_DATABASE = [
   {
     name: 'Central de Cursos Online & Certificados',
     platform: 'Telegram',
-    username: 'cursos_online_divulgacao',
-    invite_url: 'https://t.me/cursos_online_divulgacao',
+    username: 'cursos_online_divulgacao_br',
+    invite_url: 'https://t.me/cursos_online_divulgacao_br',
     category: 'Educação & Treinamentos',
-    approx_members: 16100,
+    approx_members: 0,
     allows_links: true,
     rules_summary: 'Grupo voltado para divulgação de cursos profissionalizantes e e-books.',
     keywords: ['cursos', 'educação', 'treinamento', 'ebooks', 'divulgação']
@@ -90,10 +92,10 @@ const PROSPECT_COMMUNITIES_DATABASE = [
   {
     name: 'Mundo dos Negócios & Dropshipping BR',
     platform: 'Telegram',
-    username: 'negocios_dropshipping_br',
-    invite_url: 'https://t.me/negocios_dropshipping_br',
+    username: 'negocios_dropshipping_brasil',
+    invite_url: 'https://t.me/negocios_dropshipping_brasil',
     category: 'E-commerce & Negócios',
-    approx_members: 8900,
+    approx_members: 0,
     allows_links: true,
     rules_summary: 'Permitido links de ferramentas, fornecedores e treinamentos do nicho.',
     keywords: ['dropshipping', 'ecommerce', 'negocios', 'vendas', 'renda extra']
@@ -131,7 +133,8 @@ class GroupProspectorService {
       return true;
     });
 
-    // Se o termo buscado não estiver no catálogo indexado, gera uma busca dinâmica via Telegram
+    // Se o termo buscado não estiver no catálogo indexado, gera sugestões dinâmicas
+    // ATENÇÃO: Estes são exemplos de formato. Substitua por usernames reais de grupos do Telegram.
     if (term && results.length < 3) {
       const dynamicSuggestions = [
         {
@@ -140,7 +143,7 @@ class GroupProspectorService {
           username: `divulga_${term.replace(/[^a-z0-9]/g, '_')}_br`,
           invite_url: `https://t.me/divulga_${term.replace(/[^a-z0-9]/g, '_')}_br`,
           category: 'Prospecção Aberta',
-          approx_members: 5400,
+          approx_members: 0,
           allows_links: true,
           rules_summary: `Comunidade pública com foco em ${keyword}. Links de afiliados permitidos com moderação.`,
           keywords: [term, 'divulgação', 'afiliados']
@@ -151,7 +154,7 @@ class GroupProspectorService {
           username: `links_${term.replace(/[^a-z0-9]/g, '_')}_aberto`,
           invite_url: `https://t.me/links_${term.replace(/[^a-z0-9]/g, '_')}_aberto`,
           category: 'Classificados',
-          approx_members: 3800,
+          approx_members: 0,
           allows_links: true,
           rules_summary: 'Grupo aberto para compartilhamento diário de links e ofertas de afiliados.',
           keywords: [term, 'links', 'vendas']

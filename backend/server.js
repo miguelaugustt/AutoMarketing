@@ -12,7 +12,8 @@ const groupsRoutes = require('./routes/groups.routes');
 const campaignsRoutes = require('./routes/campaigns.routes');
 const publicationsRoutes = require('./routes/publications.routes');
 const settingsRoutes = require('./routes/settings.routes');
-const prospectorRoutes = require('./routes/prospector.routes');
+const userbotRoutes = require('./routes/userbot.routes');
+const manualPostRoutes = require('./routes/manual-post.routes');
 
 // Importação de middlewares e serviços
 const errorHandler = require('./middleware/errorHandler');
@@ -31,6 +32,10 @@ app.use(express.urlencoded({ extended: true }));
 const frontendPath = path.join(__dirname, '..', 'frontend');
 app.use(express.static(frontendPath));
 
+// Servir arquivos enviados pelo usuário (imagens e vídeos de postagem)
+const uploadsPath = path.join(__dirname, 'uploads');
+app.use('/uploads', express.static(uploadsPath));
+
 // Registro das Rotas da API
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
@@ -39,7 +44,8 @@ app.use('/api/groups', groupsRoutes);
 app.use('/api/campaigns', campaignsRoutes);
 app.use('/api/publications', publicationsRoutes);
 app.use('/api/settings', settingsRoutes);
-app.use('/api/prospector', prospectorRoutes);
+app.use('/api/userbot', userbotRoutes);
+app.use('/api/manual-post', manualPostRoutes);
 
 // Endpoint de verificação de integridade (Health Check)
 app.get('/api/health', (req, res) => {

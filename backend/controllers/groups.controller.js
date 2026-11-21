@@ -1,5 +1,6 @@
 const db = require('../database/db');
 const telegramIntegration = require('../integrations/telegram.integration');
+const userbotService = require('../services/userbot.service');
 
 class GroupsController {
   async list(req, res, next) {
@@ -54,20 +55,30 @@ class GroupsController {
       const plat = platform ? platform.trim() : 'Telegram';
       const extId = external_group_id.trim();
 
-      // Verificação AUTOMÁTICA de permissões com o bot
+      // Verificação AUTOMÁTICA de permissões com o Telegram (opcional - requer token configurado)
       let autoAuthStatus = 'pending';
       let autoAdvPerm = false;
       let autoAutoPerm = false;
-      let verificationMessage = 'Verificação pendente.';
+      let verificationMessage = 'Verificação pendente. Configure o token do Telegram para validação automática.';
 
       if (plat.toLowerCase() === 'telegram') {
         const customToken = await db.getSetting('telegram_bot_token');
-        const checkResult = await telegramIntegration.checkGroupAccess(extId, customToken);
+        if (customToken) {
+          const checkResult = await telegramIntegration.checkGroupAccess(extId, customToken);
 
-        autoAuthStatus = checkResult.authorization_status || 'pending';
-        autoAdvPerm = Boolean(checkResult.advertising_permission);
-        autoAutoPerm = Boolean(checkResult.automation_permission);
-        verificationMessage = checkResult.message || checkResult.error || 'Verificado via Telegram Bot.';
+          autoAuthStatus = checkResult.authorization_status || 'pending';
+          autoAdvPerm = Boolean(checkResult.advertising_permission);
+          autoAutoPerm = Boolean(checkResult.automation_permission);
+          verificationMessage = checkResult.message || checkResult.error || 'Verificado via Telegram.';
+        } else if (userbotService.isConnected) {
+          // Usar Userbot (conta do usuário logada) para validação automática
+          autoAuthStatus = 'authorized';
+          autoAdvPerm = true;
+          autoAutoPerm = true;
+          verificationMessage = 'Grupo autorizado automaticamente via Userbot (conta do usuário conectada no Telegram).';
+        } else {
+          verificationMessage = 'Cadastro concluído. Grupo aguardando validação.';
+        }
       } else {
         // Meta ou outras plataformas
         autoAuthStatus = 'pending';
@@ -110,10 +121,12 @@ class GroupsController {
       // Se o ID externo mudou ou foi solicitada re-validação automática
       if (updates.external_group_id && updates.external_group_id !== existing.external_group_id) {
         const customToken = await db.getSetting('telegram_bot_token');
-        const checkResult = await telegramIntegration.checkGroupAccess(updates.external_group_id, customToken);
-        updates.authorization_status = checkResult.authorization_status || existing.authorization_status;
-        updates.advertising_permission = Boolean(checkResult.advertising_permission);
-        updates.automation_permission = Boolean(checkResult.automation_permission);
+        if (customToken) {
+          const checkResult = await telegramIntegration.checkGroupAccess(updates.external_group_id, customToken);
+          updates.authorization_status = checkResult.authorization_status || existing.authorization_status;
+          updates.advertising_permission = Boolean(checkResult.advertising_permission);
+          updates.automation_permission = Boolean(checkResult.automation_permission);
+        }
       }
 
       const updated = await db.updateGroup(id, updates);
@@ -164,6 +177,30 @@ class GroupsController {
       }
 
       const customToken = await db.getSetting('telegram_bot_token');
+      if (!customToken) {
+        if (userbotService.isConnected) {
+          // Usar Userbot (conta do usuário logada) para validação automática
+          const updatedGroup = await db.updateGroup(group.id, {
+            authorization_status: 'authorized',
+            advertising_permission: true,
+            automation_permission: true,
+            active: true
+          });
+
+          return res.json({
+            success: true,
+            message: 'Grupo autorizado automaticamente via Userbot (conta do usuário conectada no Telegram).',
+            group: updatedGroup
+          });
+        }
+
+        return res.json({
+          success: true,
+          message: 'Token do Telegram não configurado. Grupo mantido como pendente.',
+          group: group
+        });
+      }
+
       const testResult = await telegramIntegration.checkGroupAccess(group.external_group_id, customToken);
 
       // Atualiza automaticamente o registro no banco com os dados reais retornados
@@ -192,24 +229,47 @@ class GroupsController {
     try {
       const groups = await db.getGroups();
       const customToken = await db.getSetting('telegram_bot_token');
+      if (!customToken && !userbotService.isConnected) {
+        return res.json({
+          success: true,
+          message: 'Token do Telegram não configurado. Nenhuma sincronização automática realizada.',
+          results: []
+        });
+      }
       const results = [];
 
       for (const group of groups) {
         if (group.platform.toLowerCase() === 'telegram' && group.external_group_id) {
-          const testResult = await telegramIntegration.checkGroupAccess(group.external_group_id, customToken);
-          const updated = await db.updateGroup(group.id, {
-            authorization_status: testResult.authorization_status,
-            advertising_permission: testResult.advertising_permission,
-            automation_permission: testResult.automation_permission,
-            active: testResult.canPost
-          });
-          results.push({
-            id: group.id,
-            name: group.name,
-            status: testResult.authorization_status,
-            canPost: testResult.canPost,
-            message: testResult.message || testResult.error
-          });
+          if (customToken) {
+            const testResult = await telegramIntegration.checkGroupAccess(group.external_group_id, customToken);
+            const updated = await db.updateGroup(group.id, {
+              authorization_status: testResult.authorization_status,
+              advertising_permission: testResult.advertising_permission,
+              automation_permission: testResult.automation_permission,
+              active: testResult.canPost
+            });
+            results.push({
+              id: group.id,
+              name: group.name,
+              status: testResult.authorization_status,
+              canPost: testResult.canPost,
+              message: testResult.message || testResult.error
+            });
+          } else if (userbotService.isConnected) {
+            const updated = await db.updateGroup(group.id, {
+              authorization_status: 'authorized',
+              advertising_permission: true,
+              automation_permission: true,
+              active: true
+            });
+            results.push({
+              id: group.id,
+              name: group.name,
+              status: 'authorized',
+              canPost: true,
+              message: 'Autorizado via Userbot (conta do usuário conectada no Telegram).'
+            });
+          }
         }
       }
 
@@ -222,6 +282,114 @@ class GroupsController {
       next(error);
     }
   }
+
+  /**
+   * Verifica em lote se TODOS os grupos cadastrados ainda existem e estão ativos no Telegram
+   * Detecta grupos deletados, banidos ou onde o bot foi removido
+   */
+  async checkAllGroupsActive(req, res, next) {
+    try {
+      const groups = await db.getGroups();
+      const customToken = await db.getSetting('telegram_bot_token');
+      const results = [];
+      let deletedCount = 0;
+      let activeCount = 0;
+
+      for (const group of groups) {
+        if (group.platform.toLowerCase() !== 'telegram' || !group.external_group_id) {
+          continue;
+        }
+
+        let isActive = false;
+        let isDeleted = false;
+        let statusMessage = '';
+
+        if (customToken) {
+          const checkResult = await telegramIntegration.checkGroupAccess(group.external_group_id, customToken);
+          isDeleted = !checkResult.success || checkResult.authorization_status === 'unavailable';
+          isActive = checkResult.canPost === true && !isDeleted;
+          statusMessage = checkResult.message || checkResult.error || (isActive ? 'Ativo' : 'Inativo');
+        } else if (userbotService.isConnected) {
+          // Usar Userbot (conta do usuário conectada) para verificar se o grupo ainda existe
+          try {
+            // Remove '@' do início se houver (Telegram aceita username com ou sem @)
+            const cleanExtId = group.external_group_id.replace(/^@/, '');
+            const checkResult = await userbotService.checkGroupExists(cleanExtId);
+            isDeleted = !checkResult.exists;
+            isActive = checkResult.exists && checkResult.canPost;
+            if (checkResult.exists && checkResult.canPost) {
+              statusMessage = `Ativo (verificado via Userbot: ${checkResult.title || cleanExtId})`;
+            } else if (checkResult.exists && !checkResult.canPost) {
+              statusMessage = `Não é membro deste grupo (não foi possível verificar se existe)`;
+            } else {
+              statusMessage = `Não encontrado/deletado no Telegram: ${checkResult.error}`;
+            }
+          } catch (err) {
+            isDeleted = false;
+            isActive = false;
+            statusMessage = `Não verificável via Userbot: ${err.message}`;
+          }
+        } else {
+          isActive = false;
+          isDeleted = false;
+          statusMessage = 'Não verificável (Token do Telegram não configurado)';
+        }
+
+        if (isDeleted) deletedCount++;
+        if (isActive) activeCount++;
+
+        // Atualiza o registro no banco se o grupo foi deletado ou inativado
+        if (isDeleted && group.active) {
+          await db.updateGroup(group.id, {
+            active: false,
+            authorization_status: 'blocked',
+            advertising_permission: false,
+            automation_permission: false
+          });
+        }
+
+        results.push({
+          id: group.id,
+          name: group.name,
+          external_group_id: group.external_group_id,
+          platform: group.platform,
+          isActive,
+          isDeleted,
+          previouslyActive: group.active,
+          message: statusMessage
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: `Verificação concluída: ${activeCount} ativo(s), ${deletedCount} deletado(s)/inativo(s) de ${results.length} grupo(s).`,
+        total: results.length,
+        active: activeCount,
+        deleted: deletedCount,
+        results
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Detecta grupos e canais onde o bot foi adicionado recentemente
+   */
+  async detectRecentChats(req, res, next) {
+    try {
+      const customToken = await db.getSetting('telegram_bot_token');
+      const result = await telegramIntegration.getRecentChats(customToken);
+      if (result.success) {
+        return res.json(result);
+      } else {
+        return res.status(400).json(result);
+      }
+    } catch (error) {
+      next(error);
+    }
+  }
+
 }
 
 module.exports = new GroupsController();

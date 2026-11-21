@@ -26,6 +26,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-open-create-group').addEventListener('click', openCreateModal);
   document.getElementById('form-group').addEventListener('submit', handleSaveGroup);
   document.getElementById('btn-sync-all').addEventListener('click', syncAllGroupsPermissions);
+  document.getElementById('btn-check-all-groups').addEventListener('click', checkAllGroupsActive);
+
+  const btnDetectChat = document.getElementById('btn-detect-chat-id');
+  if (btnDetectChat) {
+    btnDetectChat.addEventListener('click', detectChatIdAutomatically);
+  }
 });
 
 async function loadGroups() {
@@ -119,6 +125,12 @@ function renderGroupsTable(groups) {
             </div>
           </div>
         </td>
+        <td>
+          <span class="badge-status ${g.active ? 'authorized' : 'blocked'}">
+            <i class="bi ${g.active ? 'bi-check-circle-fill' : 'bi-x-circle'}"></i>
+            ${g.active ? 'Ativo no Sistema' : 'Inativo / Deletado'}
+          </span>
+        </td>
         <td>${cooldownText}</td>
         <td class="text-end">
           <button class="btn btn-sm btn-outline-warning me-1" onclick="testGroupPermissions('${g.id}')" title="Re-verificar Permissões Agora">
@@ -145,6 +157,9 @@ function openCreateModal() {
   document.getElementById('group-invite-url').value = '';
   document.getElementById('group-active').checked = true;
 
+  const box = document.getElementById('detected-chats-box');
+  if (box) box.classList.add('d-none');
+
   if (groupModalInstance) groupModalInstance.show();
 }
 
@@ -160,17 +175,35 @@ function openEditModal(id) {
   document.getElementById('group-invite-url').value = g.invite_url || '';
   document.getElementById('group-active').checked = g.active;
 
+  const box = document.getElementById('detected-chats-box');
+  if (box) box.classList.add('d-none');
+
   if (groupModalInstance) groupModalInstance.show();
 }
 
 async function handleSaveGroup(e) {
   e.preventDefault();
   const id = document.getElementById('group-id').value;
+  const extIdInput = document.getElementById('group-external-id');
+  const inviteUrlInput = document.getElementById('group-invite-url');
+
+  let extId = extIdInput.value.trim();
+  let inviteUrl = inviteUrlInput.value.trim();
+
+  // Se o usuário colou um link de convite privado com '+' no campo de ID Externo
+  if (extId.includes('t.me/+') || extId.includes('joinchat/')) {
+    if (!inviteUrl) {
+      inviteUrlInput.value = extId;
+    }
+    showToast('Atenção: "https://t.me/+..." é um link de convite! O Telegram exige o ID numérico do chat (que começa com -100). Clique em "Detectar ID" ou use o bot @RawDataBot no grupo para pegar o número.', 'warning', 8000);
+    return;
+  }
+
   const payload = {
     name: document.getElementById('group-name').value.trim(),
     platform: document.getElementById('group-platform').value,
-    external_group_id: document.getElementById('group-external-id').value.trim(),
-    invite_url: document.getElementById('group-invite-url').value.trim(),
+    external_group_id: extId,
+    invite_url: inviteUrl,
     active: document.getElementById('group-active').checked
   };
 
@@ -191,11 +224,75 @@ async function handleSaveGroup(e) {
     if (groupModalInstance) groupModalInstance.hide();
     loadGroups();
   } catch (error) {
-    showToast(error.message || 'Erro ao salvar grupo.', 'error');
+    showToast(error.message || 'Erro ao salvar grupo.', 'error', 7000);
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="bi bi-save me-1"></i> Salvar e Validar com Bot';
   }
+}
+
+async function detectChatIdAutomatically() {
+  const box = document.getElementById('detected-chats-box');
+  const btn = document.getElementById('btn-detect-chat-id');
+  try {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Detectando...';
+    box.classList.remove('d-none');
+    box.innerHTML = '<span class="text-info"><i class="bi bi-arrow-repeat spin me-1"></i> Consultando atualizações do seu bot no Telegram...</span>';
+
+    const res = await api.get('/groups/detect-chats');
+    if (res.success && res.chats && res.chats.length > 0) {
+      box.innerHTML = `
+        <div class="fw-bold text-success mb-1 small"><i class="bi bi-check-circle me-1"></i> Grupos detectados onde seu bot foi adicionado:</div>
+        <div class="d-flex flex-column gap-1">
+          ${res.chats.map(chat => `
+            <div class="d-flex justify-content-between align-items-center p-1 px-2 rounded bg-black bg-opacity-40">
+              <div class="small">
+                <strong>${escapeHtml(chat.title)}</strong>
+                <code class="text-info ms-1">${chat.id}</code>
+              </div>
+              <button type="button" class="btn btn-sm btn-primary py-0 px-2" style="font-size:0.75rem;" onclick="selectDetectedChat('${chat.id}', '${escapeHtml(chat.title)}')">
+                Usar este ID
+              </button>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    } else {
+      box.innerHTML = `
+        <div class="text-warning mb-1 small">
+          <i class="bi bi-info-circle me-1"></i> Nenhum grupo novo detectado nas últimas mensagens do bot.
+        </div>
+        <div class="text-secondary" style="font-size:0.75rem;">
+          <strong>Como pegar o ID numérico do seu grupo em 10 segundos:</strong>
+          <ol class="ps-3 mb-0 mt-1">
+            <li>Abra seu grupo no Telegram e adicione o bot <code class="text-info">@RawDataBot</code>.</li>
+            <li>Ele responderá na hora com uma mensagem contendo <strong class="text-white">"id": -100...</strong>.</li>
+            <li>Copie o número (com o sinal de menos), cole no campo de ID e pode remover o @RawDataBot!</li>
+          </ol>
+        </div>
+      `;
+    }
+  } catch (error) {
+    box.innerHTML = `
+      <div class="text-danger small">
+        <i class="bi bi-exclamation-triangle me-1"></i> ${escapeHtml(error.message || 'Configure o token do bot em Configurações & API primeiro.')}
+      </div>
+    `;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-magic me-1"></i> Detectar ID Automaticamente';
+  }
+}
+
+function selectDetectedChat(id, title) {
+  document.getElementById('group-external-id').value = id;
+  const nameInput = document.getElementById('group-name');
+  if (!nameInput.value.trim() && title) {
+    nameInput.value = title;
+  }
+  showToast(`ID ${id} selecionado com sucesso!`, 'success');
+  document.getElementById('detected-chats-box').classList.add('d-none');
 }
 
 async function testGroupPermissions(id) {
@@ -230,6 +327,28 @@ async function syncAllGroupsPermissions() {
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i> Sincronizar Permissões com Telegram';
+  }
+}
+
+async function checkAllGroupsActive() {
+  const btn = document.getElementById('btn-check-all-groups');
+  try {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Verificando...';
+    showToast('Verificando se grupos ainda existem no Telegram...', 'info');
+
+    const res = await api.post('/groups/check-all');
+    if (res.success) {
+      showToast(res.message, 'success', 6000);
+      loadGroups();
+    } else {
+      showToast(res.message || 'Falha na verificação.', 'error');
+    }
+  } catch (error) {
+    showToast('Erro ao verificar grupos: ' + error.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-shield-check me-1"></i> Verificar Grupos Ativos/Deletados';
   }
 }
 

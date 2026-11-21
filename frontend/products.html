@@ -14,8 +14,9 @@
 <body>
 
 <div class="app-container">
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
   <!-- SIDEBAR LATERAL -->
-  <aside class="app-sidebar">
+  <aside class="app-sidebar" id="appSidebar">
     <div class="sidebar-brand">
       <div class="brand-icon">
         <i class="bi bi-broadcast"></i>
@@ -40,13 +41,11 @@
       <a href="campaigns.html" class="nav-link">
         <i class="bi bi-megaphone"></i> Campanhas
       </a>
+      <a href="manual-post.html" class="nav-link">
+        <i class="bi bi-send"></i> Postagem Manual
+      </a>
       <a href="history.html" class="nav-link">
         <i class="bi bi-clock-history"></i> Histórico & Auditoria
-      </a>
-
-      <div class="nav-section-title mt-4">Prospecção</div>
-      <a href="prospector.html" class="nav-link">
-        <i class="bi bi-radar"></i> Radar de Grupos
       </a>
 
       <div class="nav-section-title mt-4">Sistema</div>
@@ -74,6 +73,12 @@
   <!-- CONTEÚDO PRINCIPAL -->
   <main class="app-main">
     <header class="app-header">
+      <button class="mobile-menu-toggle" id="mobileMenuToggle" title="Abrir Menu">
+        <i class="bi bi-list"></i>
+      </button>
+      <button class="theme-toggle" id="themeToggle" title="Alternar Tema">
+        <i class="bi bi-moon-stars"></i>
+      </button>
       <div class="header-title-box">
         <h1>Produtos Afiliados</h1>
         <p>Gerencie os infoprodutos, cursos e links de divulgação das plataformas</p>
@@ -221,5 +226,37 @@
 <script src="js/api.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/products.js"></script>
+<script>
+  const sidebar = document.getElementById('appSidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  const toggle = document.getElementById('mobileMenuToggle');
+  const themeToggle = document.getElementById('themeToggle');
+  const htmlEl = document.documentElement;
+
+  function openSidebar() { sidebar.classList.add('show'); overlay.classList.add('show'); sidebar.classList.remove('collapsed'); }
+  function closeSidebar() { sidebar.classList.remove('show'); overlay.classList.remove('show'); sidebar.classList.add('collapsed'); }
+  if (toggle) toggle.addEventListener('click', openSidebar);
+  if (overlay) overlay.addEventListener('click', closeSidebar);
+
+  const savedTheme = localStorage.getItem('automarketing_theme') || 'dark';
+  if (savedTheme === 'light') {
+    htmlEl.setAttribute('data-theme', 'light');
+    if (themeToggle) themeToggle.innerHTML = '<i class="bi bi-sun-fill"></i>';
+  }
+  if (themeToggle) {
+    themeToggle.addEventListener('click', () => {
+      const isLight = htmlEl.getAttribute('data-theme') === 'light';
+      if (isLight) {
+        htmlEl.removeAttribute('data-theme');
+        localStorage.setItem('automarketing_theme', 'dark');
+        themeToggle.innerHTML = '<i class="bi bi-moon-stars"></i>';
+      } else {
+        htmlEl.setAttribute('data-theme', 'light');
+        localStorage.setItem('automarketing_theme', 'light');
+        themeToggle.innerHTML = '<i class="bi bi-sun-fill"></i>';
+      }
+    });
+  }
+</script>
 </body>
 </html>

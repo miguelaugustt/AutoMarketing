@@ -105,6 +105,22 @@ class PublicationsController {
       next(error);
     }
   }
+
+  async delete(req, res, next) {
+    try {
+      const { id } = req.params;
+      const deleted = await db.deletePublication(id);
+      if (!deleted) {
+        return res.status(404).json({ success: false, error: 'Publicação não encontrada.' });
+      }
+      return res.json({
+        success: true,
+        message: 'Publicação excluída com sucesso.'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new PublicationsController();

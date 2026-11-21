@@ -3,6 +3,7 @@ const securityService = require('./security.service');
 const adVariationService = require('./adVariation.service');
 const telegramIntegration = require('../integrations/telegram.integration');
 const metaIntegration = require('../integrations/meta.integration');
+const userbotService = require('./userbot.service');
 
 /**
  * Motor de Distribuição Automatizada
@@ -103,6 +104,8 @@ class DistributionService {
             product_id: campaign.product_id || activeProducts[0].id,
             group_id: group.id,
             message: 'Publicação bloqueada por falta de autorização formal.',
+            image_url: options.image_url || null,
+            video_url: options.video_url || null,
             status: 'blocked_unauthorized',
             error_message: authCheck.reason
           });
@@ -151,17 +154,56 @@ class DistributionService {
 
       if (group.platform.toLowerCase() === 'telegram') {
         const customToken = await db.getSetting('telegram_bot_token');
-        dispatchResult = await telegramIntegration.sendMessage(
-          group.external_group_id,
-          messageText,
-          { parse_mode: 'Markdown' },
-          customToken
-        );
+        const userbotConnected = userbotService.isConnected;
+        const simulationMode = process.env.SIMULATION_MODE === 'true';
+
+        if (customToken) {
+          dispatchResult = await telegramIntegration.sendMessage(
+            group.external_group_id,
+            messageText,
+            { parse_mode: 'Markdown' },
+            customToken,
+            options.image_url || null,
+            options.video_url || null
+          );
+        } else if (userbotConnected) {
+          try {
+            const userbotResult = await userbotService.sendMessage(
+              group.external_group_id,
+              messageText
+            );
+            dispatchResult = {
+              success: userbotResult.success,
+              simulated: false,
+              message: userbotResult.success ? 'Mensagem enviada via Userbot.' : userbotResult.error,
+              messageId: userbotResult.messageId,
+              chatId: group.external_group_id
+            };
+          } catch (err) {
+            dispatchResult = { success: false, simulated: false, error: err.message };
+          }
+        } else if (simulationMode) {
+          dispatchResult = await telegramIntegration.sendMessage(
+            group.external_group_id,
+            messageText,
+            { parse_mode: 'Markdown' },
+            null,
+            options.image_url || null,
+            options.video_url || null
+          );
+        } else {
+          dispatchResult = {
+            success: false,
+            error: 'Nenhum meio de envio configurado para Telegram.'
+          };
+        }
       } else if (group.platform.toLowerCase() === 'meta' || group.platform.toLowerCase() === 'facebook') {
         dispatchResult = await metaIntegration.publishToPage(
           group.external_group_id,
           messageText,
-          selectedProduct.affiliate_url
+          selectedProduct.affiliate_url,
+          options.image_url || null,
+          options.video_url || null
         );
       } else {
         dispatchResult = {
@@ -181,6 +223,8 @@ class DistributionService {
           product_id: selectedProduct.id,
           group_id: group.id,
           message: messageText,
+          image_url: options.image_url || null,
+          video_url: options.video_url || null,
           status: 'published',
           published_at: startTime
         });
@@ -199,6 +243,8 @@ class DistributionService {
           product_id: selectedProduct.id,
           group_id: group.id,
           message: messageText,
+          image_url: options.image_url || null,
+          video_url: options.video_url || null,
           status: 'failed',
           error_message: dispatchResult.error
         });

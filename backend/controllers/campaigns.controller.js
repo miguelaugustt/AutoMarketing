@@ -123,11 +123,13 @@ class CampaignsController {
   async triggerRun(req, res, next) {
     try {
       const { id } = req.params;
-      const { ignoreInterval, force } = req.body;
+      const { ignoreInterval, force, image_url, video_url } = req.body;
 
       const result = await distributionService.processCampaign(id, {
         ignoreInterval: Boolean(ignoreInterval),
-        force: Boolean(force)
+        force: Boolean(force),
+        image_url: image_url || null,
+        video_url: video_url || null
       });
 
       return res.json({

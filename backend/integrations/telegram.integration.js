@@ -47,12 +47,81 @@ class TelegramIntegration {
   }
 
   /**
+   * Busca os grupos e canais onde o bot foi adicionado recentemente chamando getUpdates
+   */
+  async getRecentChats(customToken = null) {
+    const token = this.getToken(customToken);
+    if (!token) {
+      return {
+        success: false,
+        error: 'Configure o Token do seu Bot em "Configurações & API" antes de buscar os grupos.'
+      };
+    }
+
+    try {
+      const response = await axios.get(`${this.baseUrl}/bot${token}/getUpdates`, { timeout: 8000 });
+      if (!response.data || !response.data.ok) {
+        return { success: false, error: 'Não foi possível consultar as atualizações do bot.' };
+      }
+
+      const updates = response.data.result || [];
+      const chatsMap = new Map();
+
+      updates.forEach(u => {
+        const chat = u.message?.chat || u.channel_post?.chat || u.my_chat_member?.chat;
+        if (chat && (chat.type === 'group' || chat.type === 'supergroup' || chat.type === 'channel')) {
+          chatsMap.set(String(chat.id), {
+            id: String(chat.id),
+            title: chat.title || 'Grupo sem título',
+            type: chat.type,
+            username: chat.username ? `@${chat.username}` : null
+          });
+        }
+      });
+
+      const chats = Array.from(chatsMap.values());
+      return {
+        success: true,
+        count: chats.length,
+        chats: chats
+      };
+    } catch (error) {
+      const errMsg = error.response?.data?.description || error.message;
+      return {
+        success: false,
+        error: `Falha ao buscar grupos no Telegram: ${errMsg}`
+      };
+    }
+  }
+
+  /**
    * Consulta os dados do grupo/canal e status real do bot no grupo
    * Determina automaticamente status de autorização e permissões de postagem
    */
   async checkGroupAccess(chatId, customToken = null) {
     const token = this.getToken(customToken);
     const simulationMode = process.env.SIMULATION_MODE === 'true';
+
+    let sanitizedChatId = String(chatId || '').trim();
+
+    // Verificação se o usuário colou um link de convite com '+'
+    if (sanitizedChatId.includes('t.me/+') || sanitizedChatId.includes('joinchat/')) {
+      return {
+        success: false,
+        canPost: false,
+        authorization_status: 'pending',
+        advertising_permission: false,
+        automation_permission: false,
+        error: 'Você colou um link de convite privado (https://t.me/+...). O Telegram exige o ID numérico do chat (que começa com -100, ex: -1002345678901) para que o bot possa postar.'
+      };
+    }
+
+    // Se o usuário digitou uma URL pública (ex: https://t.me/meugrupo)
+    if (sanitizedChatId.startsWith('https://t.me/')) {
+      sanitizedChatId = '@' + sanitizedChatId.replace('https://t.me/', '').replace('/', '');
+    } else if (sanitizedChatId.startsWith('t.me/')) {
+      sanitizedChatId = '@' + sanitizedChatId.replace('t.me/', '').replace('/', '');
+    }
 
     // Se estiver em modo de simulação explícito
     if (simulationMode) {
@@ -77,7 +146,7 @@ class TelegramIntegration {
         authorization_status: 'pending',
         advertising_permission: false,
         automation_permission: false,
-        error: 'Token do Telegram não configurado nas Configurações do Sistema. Configure o token para validação automática com o Telegram.'
+        error: 'Token do Telegram não configurado em "Configurações & API". Cadastre seu token para validação automática com o Telegram.'
       };
     }
 
@@ -98,7 +167,7 @@ class TelegramIntegration {
 
       // 2. Consulta informações do chat
       const chatRes = await axios.get(`${this.baseUrl}/bot${token}/getChat`, {
-        params: { chat_id: chatId },
+        params: { chat_id: sanitizedChatId },
         timeout: 8000
       });
 
@@ -109,7 +178,7 @@ class TelegramIntegration {
           authorization_status: 'unavailable',
           advertising_permission: false,
           automation_permission: false,
-          error: 'Comunidade não encontrada ou o bot ainda não foi adicionado ao chat.'
+          error: `Chat não encontrado no Telegram (${sanitizedChatId}). Certifique-se de que adicionou o bot ao grupo como Administrador.`
         };
       }
 
@@ -117,7 +186,7 @@ class TelegramIntegration {
 
       // 3. Consulta status de membro do bot no grupo
       const memberRes = await axios.get(`${this.baseUrl}/bot${token}/getChatMember`, {
-        params: { chat_id: chatId, user_id: botId },
+        params: { chat_id: sanitizedChatId, user_id: botId },
         timeout: 8000
       });
 
@@ -148,7 +217,6 @@ class TelegramIntegration {
           authStatus = 'unauthorized';
         }
       } else if (status === 'member') {
-        // Em canais apenas administradores podem postar
         if (chatInfo.type === 'channel') {
           canPost = false;
           authStatus = 'unauthorized';
@@ -167,7 +235,7 @@ class TelegramIntegration {
       return {
         success: true,
         simulated: false,
-        chatTitle: chatInfo.title || chatInfo.username || chatId,
+        chatTitle: chatInfo.title || chatInfo.username || sanitizedChatId,
         chatType: chatInfo.type,
         botStatus: status,
         canPost: canPost,
@@ -175,7 +243,7 @@ class TelegramIntegration {
         advertising_permission: canPost,
         automation_permission: canPost,
         message: canPost
-          ? `Bot verificado como ${status} com permissão de publicação confirmada.`
+          ? `Bot verificado como ${status} com permissão de publicação confirmada!`
           : `Bot encontrado no chat (${status}), mas sem permissão suficiente para postar mensagens.`
       };
     } catch (error) {
@@ -193,27 +261,79 @@ class TelegramIntegration {
   }
 
   /**
-   * Envia uma mensagem para o grupo/canal
+   * Envia uma mensagem para o grupo/canal (suporta imagem e vídeo opcionais)
    */
-  async sendMessage(chatId, text, options = {}, customToken = null) {
+  async sendMessage(chatId, text, options = {}, customToken = null, image_url = null, video_url = null) {
     const token = this.getToken(customToken);
     const simulationMode = process.env.SIMULATION_MODE === 'true';
 
-    // Se estiver em modo de simulação ou sem token configurado, simula o envio
+    let sanitizedChatId = String(chatId || '').trim();
+    if (sanitizedChatId.startsWith('https://t.me/')) {
+      sanitizedChatId = '@' + sanitizedChatId.replace('https://t.me/', '').replace('/', '');
+    }
+
     if (!token || simulationMode) {
-      console.log(`[Telegram Simulado] Mensagem para ${chatId}: \n${text.substring(0, 100)}...`);
+      console.log(`[Telegram Simulado] Mensagem para ${sanitizedChatId}: \n${text.substring(0, 100)}...${image_url ? ` [IMAGEM: ${image_url}]` : ''}${video_url ? ` [VÍDEO: ${video_url}]` : ''}`);
       return {
         success: true,
         simulated: true,
         messageId: Math.floor(Math.random() * 1000000),
-        chatId: chatId,
+        chatId: sanitizedChatId,
         date: new Date().toISOString()
       };
     }
 
     try {
+      // Se tem imagem ou vídeo, envia como media group / sendPhoto / sendVideo
+      if (image_url) {
+        const payload = {
+          chat_id: sanitizedChatId,
+          photo: image_url,
+          caption: text,
+          parse_mode: options.parse_mode || 'Markdown'
+        };
+        const response = await axios.post(`${this.baseUrl}/bot${token}/sendPhoto`, payload, {
+          timeout: 12000
+        });
+        if (response.data && response.data.ok) {
+          return {
+            success: true,
+            simulated: false,
+            messageId: response.data.result.message_id,
+            chatId: response.data.result.chat.id,
+            date: new Date(response.data.result.date * 1000).toISOString(),
+            media_type: 'photo'
+          };
+        }
+        return { success: false, simulated: false, error: 'Telegram não confirmou o envio da imagem.' };
+      }
+
+      if (video_url) {
+        const payload = {
+          chat_id: sanitizedChatId,
+          video: video_url,
+          caption: text,
+          parse_mode: options.parse_mode || 'Markdown'
+        };
+        const response = await axios.post(`${this.baseUrl}/bot${token}/sendVideo`, payload, {
+          timeout: 12000
+        });
+        if (response.data && response.data.ok) {
+          return {
+            success: true,
+            simulated: false,
+            messageId: response.data.result.message_id,
+            chatId: response.data.result.chat.id,
+            date: new Date(response.data.result.date * 1000).toISOString(),
+            media_type: 'video'
+          };
+        }
+        return { success: false, simulated: false, error: 'Telegram não confirmou o envio do vídeo.' };
+      }
+
+      // Sem mídia - envia apenas texto
       const payload = {
-        chat_id: chatId,
+        chat_id: sanitizedChatId,
         text: text,
         parse_mode: options.parse_mode || 'Markdown',
         disable_web_page_preview: options.disable_preview !== undefined ? options.disable_preview : false
@@ -241,7 +361,7 @@ class TelegramIntegration {
     } catch (error) {
       const errMsg = error.response?.data?.description || error.message;
       const errorCode = error.response?.data?.error_code;
-      console.error(`[Telegram Error] Falha ao enviar para ${chatId}:`, errMsg);
+      console.error(`[Telegram Error] Falha ao enviar para ${sanitizedChatId}:`, errMsg);
 
       return {
         success: false,
