@@ -26,6 +26,7 @@ class Database {
   constructor() {
     this.isSupabaseEnabled = false;
     this.supabase = null;
+    this.useLocalFallback = false;
     this.init();
   }
 
@@ -38,13 +39,17 @@ class Database {
         this.supabase = createClient(supabaseUrl, supabaseKey);
         this.isSupabaseEnabled = true;
         console.log('[Database] Conectado ao Supabase com sucesso:', supabaseUrl);
+        console.log('[Database] Usando chave:', supabaseKey.substring(0, 12) + '...');
       } catch (err) {
         console.error('[Database] Falha ao conectar ao Supabase, alternando para armazenamento local:', err.message);
         this.isSupabaseEnabled = false;
+        this.useLocalFallback = true;
+        this.ensureLocalDb();
       }
     } else {
       console.log('[Database] Modo de armazenamento local ativo.');
       this.isSupabaseEnabled = false;
+      this.useLocalFallback = true;
       this.ensureLocalDb();
     }
   }
@@ -77,10 +82,11 @@ class Database {
 
   getConnectionInfo() {
     return {
-      type: this.isSupabaseEnabled ? 'supabase' : 'local',
+      type: this.useLocalFallback ? 'local' : (this.isSupabaseEnabled ? 'supabase' : 'local'),
       connected: true,
       url: this.isSupabaseEnabled ? process.env.SUPABASE_URL : 'local_db.json',
-      path: LOCAL_DB_PATH
+      path: LOCAL_DB_PATH,
+      fallback: this.useLocalFallback
     };
   }
 
@@ -88,37 +94,47 @@ class Database {
   // PRODUTOS (products)
   // ==========================================
   async getProducts(filters = {}) {
-    if (this.isSupabaseEnabled) {
-      let query = this.supabase.from('products').select('*').order('created_at', { ascending: false });
-      if (filters.activeOnly) query = query.eq('active', true);
-      if (filters.category) query = query.eq('category', filters.category);
-      if (filters.platform) query = query.eq('platform', filters.platform);
-      const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
-    } else {
-      const db = this.readLocalDb();
-      let list = [...(db.products || [])];
-      if (filters.activeOnly) list = list.filter(p => p.active === true);
-      if (filters.category) list = list.filter(p => p.category.toLowerCase() === filters.category.toLowerCase());
-      if (filters.platform) list = list.filter(p => p.platform.toLowerCase() === filters.platform.toLowerCase());
-      if (filters.search) {
-        const s = filters.search.toLowerCase();
-        list = list.filter(p => p.name.toLowerCase().includes(s) || (p.description && p.description.toLowerCase().includes(s)));
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        let query = this.supabase.from('products').select('*').order('created_at', { ascending: false });
+        if (filters.activeOnly) query = query.eq('active', true);
+        if (filters.category) query = query.eq('category', filters.category);
+        if (filters.platform) query = query.eq('platform', filters.platform);
+        const { data, error } = await query;
+        if (error) throw error;
+        return data || [];
+      } catch (err) {
+        console.error('[Database] Supabase getProducts falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
       }
-      return list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     }
+    const db = this.readLocalDb();
+    let list = [...(db.products || [])];
+    if (filters.activeOnly) list = list.filter(p => p.active === true);
+    if (filters.category) list = list.filter(p => p.category.toLowerCase() === filters.category.toLowerCase());
+    if (filters.platform) list = list.filter(p => p.platform.toLowerCase() === filters.platform.toLowerCase());
+    if (filters.search) {
+      const s = filters.search.toLowerCase();
+      list = list.filter(p => p.name.toLowerCase().includes(s) || (p.description && p.description.toLowerCase().includes(s)));
+    }
+    return list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }
 
   async getProductById(id) {
-    if (this.isSupabaseEnabled) {
-      const { data, error } = await this.supabase.from('products').select('*').eq('id', id).single();
-      if (error) return null;
-      return data;
-    } else {
-      const db = this.readLocalDb();
-      return db.products.find(p => p.id === id) || null;
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        const { data, error } = await this.supabase.from('products').select('*').eq('id', id).single();
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.error('[Database] Supabase getProductById falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
+      }
     }
+    const db = this.readLocalDb();
+    return db.products.find(p => p.id === id) || null;
   }
 
   async createProduct(productData) {
@@ -134,94 +150,119 @@ class Database {
       created_at: new Date().toISOString()
     };
 
-    if (this.isSupabaseEnabled) {
-      const { data, error } = await this.supabase.from('products').insert([newProduct]).select().single();
-      if (error) throw error;
-      return data;
-    } else {
-      const db = this.readLocalDb();
-      db.products.unshift(newProduct);
-      this.writeLocalDb(db);
-      return newProduct;
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        const { data, error } = await this.supabase.from('products').insert([newProduct]).select().single();
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.error('[Database] Supabase createProduct falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
+      }
     }
+    const db = this.readLocalDb();
+    db.products.unshift(newProduct);
+    this.writeLocalDb(db);
+    return newProduct;
   }
 
   async updateProduct(id, updates) {
-    if (this.isSupabaseEnabled) {
-      const { data, error } = await this.supabase.from('products').update(updates).eq('id', id).select().single();
-      if (error) throw error;
-      return data;
-    } else {
-      const db = this.readLocalDb();
-      const index = db.products.findIndex(p => p.id === id);
-      if (index === -1) return null;
-      db.products[index] = { ...db.products[index], ...updates };
-      this.writeLocalDb(db);
-      return db.products[index];
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        const { data, error } = await this.supabase.from('products').update(updates).eq('id', id).select().single();
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.error('[Database] Supabase updateProduct falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
+      }
     }
+    const db = this.readLocalDb();
+    const index = db.products.findIndex(p => p.id === id);
+    if (index === -1) return null;
+    db.products[index] = { ...db.products[index], ...updates };
+    this.writeLocalDb(db);
+    return db.products[index];
   }
 
   async deleteProduct(id) {
-    if (this.isSupabaseEnabled) {
-      const { error } = await this.supabase.from('products').delete().eq('id', id);
-      if (error) throw error;
-      return true;
-    } else {
-      const db = this.readLocalDb();
-      db.products = db.products.filter(p => p.id !== id);
-      this.writeLocalDb(db);
-      return true;
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        const { error } = await this.supabase.from('products').delete().eq('id', id);
+        if (error) throw error;
+        return true;
+      } catch (err) {
+        console.error('[Database] Supabase deleteProduct falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
+      }
     }
+    const db = this.readLocalDb();
+    db.products = db.products.filter(p => p.id !== id);
+    this.writeLocalDb(db);
+    return true;
   }
 
   // ==========================================
   // GRUPOS (groups)
   // ==========================================
   async getGroups(filters = {}) {
-    if (this.isSupabaseEnabled) {
-      let query = this.supabase.from('groups').select('*').order('created_at', { ascending: false });
-      if (filters.authorizedOnly) {
-        query = query
-          .eq('authorization_status', 'authorized')
-          .eq('advertising_permission', true)
-          .eq('automation_permission', true)
-          .eq('active', true);
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        let query = this.supabase.from('groups').select('*').order('created_at', { ascending: false });
+        if (filters.authorizedOnly) {
+          query = query
+            .eq('authorization_status', 'authorized')
+            .eq('advertising_permission', true)
+            .eq('automation_permission', true)
+            .eq('active', true);
+        }
+        if (filters.platform) query = query.eq('platform', filters.platform);
+        const { data, error } = await query;
+        if (error) throw error;
+        return data || [];
+      } catch (err) {
+        console.error('[Database] Supabase getGroups falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
       }
-      if (filters.platform) query = query.eq('platform', filters.platform);
-      const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
-    } else {
-      const db = this.readLocalDb();
-      let list = [...(db.groups || [])];
-      if (filters.authorizedOnly) {
-        list = list.filter(g =>
-          g.authorization_status === 'authorized' &&
-          g.advertising_permission === true &&
-          g.automation_permission === true &&
-          g.active === true
-        );
-      }
-      if (filters.platform) {
-        list = list.filter(g => g.platform.toLowerCase() === filters.platform.toLowerCase());
-      }
-      if (filters.search) {
-        const s = filters.search.toLowerCase();
-        list = list.filter(g => g.name.toLowerCase().includes(s) || (g.external_group_id && g.external_group_id.includes(s)));
-      }
-      return list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     }
+    const db = this.readLocalDb();
+    let list = [...(db.groups || [])];
+    if (filters.authorizedOnly) {
+      list = list.filter(g =>
+        g.authorization_status === 'authorized' &&
+        g.advertising_permission === true &&
+        g.automation_permission === true &&
+        g.active === true
+      );
+    }
+    if (filters.platform) {
+      list = list.filter(g => g.platform.toLowerCase() === filters.platform.toLowerCase());
+    }
+    if (filters.search) {
+      const s = filters.search.toLowerCase();
+      list = list.filter(g => g.name.toLowerCase().includes(s) || (g.external_group_id && g.external_group_id.includes(s)));
+    }
+    return list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }
 
   async getGroupById(id) {
-    if (this.isSupabaseEnabled) {
-      const { data, error } = await this.supabase.from('groups').select('*').eq('id', id).single();
-      if (error) return null;
-      return data;
-    } else {
-      const db = this.readLocalDb();
-      return db.groups.find(g => g.id === id) || null;
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        const { data, error } = await this.supabase.from('groups').select('*').eq('id', id).single();
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.error('[Database] Supabase getGroupById falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
+      }
     }
+    const db = this.readLocalDb();
+    return db.groups.find(g => g.id === id) || null;
   }
 
   async createGroup(groupData) {
@@ -239,44 +280,59 @@ class Database {
       created_at: new Date().toISOString()
     };
 
-    if (this.isSupabaseEnabled) {
-      const { data, error } = await this.supabase.from('groups').insert([newGroup]).select().single();
-      if (error) throw error;
-      return data;
-    } else {
-      const db = this.readLocalDb();
-      db.groups.unshift(newGroup);
-      this.writeLocalDb(db);
-      return newGroup;
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        const { data, error } = await this.supabase.from('groups').insert([newGroup]).select().single();
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.error('[Database] Supabase createGroup falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
+      }
     }
+    const db = this.readLocalDb();
+    db.groups.unshift(newGroup);
+    this.writeLocalDb(db);
+    return newGroup;
   }
 
   async updateGroup(id, updates) {
-    if (this.isSupabaseEnabled) {
-      const { data, error } = await this.supabase.from('groups').update(updates).eq('id', id).select().single();
-      if (error) throw error;
-      return data;
-    } else {
-      const db = this.readLocalDb();
-      const index = db.groups.findIndex(g => g.id === id);
-      if (index === -1) return null;
-      db.groups[index] = { ...db.groups[index], ...updates };
-      this.writeLocalDb(db);
-      return db.groups[index];
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        const { data, error } = await this.supabase.from('groups').update(updates).eq('id', id).select().single();
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.error('[Database] Supabase updateGroup falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
+      }
     }
+    const db = this.readLocalDb();
+    const index = db.groups.findIndex(g => g.id === id);
+    if (index === -1) return null;
+    db.groups[index] = { ...db.groups[index], ...updates };
+    this.writeLocalDb(db);
+    return db.groups[index];
   }
 
   async deleteGroup(id) {
-    if (this.isSupabaseEnabled) {
-      const { error } = await this.supabase.from('groups').delete().eq('id', id);
-      if (error) throw error;
-      return true;
-    } else {
-      const db = this.readLocalDb();
-      db.groups = db.groups.filter(g => g.id !== id);
-      this.writeLocalDb(db);
-      return true;
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        const { error } = await this.supabase.from('groups').delete().eq('id', id);
+        if (error) throw error;
+        return true;
+      } catch (err) {
+        console.error('[Database] Supabase deleteGroup falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
+      }
     }
+    const db = this.readLocalDb();
+    db.groups = db.groups.filter(g => g.id !== id);
+    this.writeLocalDb(db);
+    return true;
   }
 
   async updateGroupLastPublication(id, timestamp = new Date().toISOString()) {
@@ -287,35 +343,45 @@ class Database {
   // CAMPANHAS (campaigns)
   // ==========================================
   async getCampaigns(filters = {}) {
-    if (this.isSupabaseEnabled) {
-      let query = this.supabase.from('campaigns').select('*, product:products(*)').order('created_at', { ascending: false });
-      if (filters.status) query = query.eq('status', filters.status);
-      const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
-    } else {
-      const db = this.readLocalDb();
-      let list = [...(db.campaigns || [])];
-      if (filters.status) list = list.filter(c => c.status === filters.status);
-      return list.map(c => {
-        const prod = c.product_id ? db.products.find(p => p.id === c.product_id) : null;
-        return { ...c, product: prod };
-      }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        let query = this.supabase.from('campaigns').select('*, product:products(*)').order('created_at', { ascending: false });
+        if (filters.status) query = query.eq('status', filters.status);
+        const { data, error } = await query;
+        if (error) throw error;
+        return data || [];
+      } catch (err) {
+        console.error('[Database] Supabase getCampaigns falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
+      }
     }
+    const db = this.readLocalDb();
+    let list = [...(db.campaigns || [])];
+    if (filters.status) list = list.filter(c => c.status === filters.status);
+    return list.map(c => {
+      const prod = c.product_id ? db.products.find(p => p.id === c.product_id) : null;
+      return { ...c, product: prod };
+    }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }
 
   async getCampaignById(id) {
-    if (this.isSupabaseEnabled) {
-      const { data, error } = await this.supabase.from('campaigns').select('*, product:products(*)').eq('id', id).single();
-      if (error) return null;
-      return data;
-    } else {
-      const db = this.readLocalDb();
-      const camp = db.campaigns.find(c => c.id === id);
-      if (!camp) return null;
-      const prod = camp.product_id ? db.products.find(p => p.id === camp.product_id) : null;
-      return { ...camp, product: prod };
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        const { data, error } = await this.supabase.from('campaigns').select('*, product:products(*)').eq('id', id).single();
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.error('[Database] Supabase getCampaignById falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
+      }
     }
+    const db = this.readLocalDb();
+    const camp = db.campaigns.find(c => c.id === id);
+    if (!camp) return null;
+    const prod = camp.product_id ? db.products.find(p => p.id === camp.product_id) : null;
+    return { ...camp, product: prod };
   }
 
   async createCampaign(campaignData) {
@@ -330,78 +396,99 @@ class Database {
       created_at: new Date().toISOString()
     };
 
-    if (this.isSupabaseEnabled) {
-      const { data, error } = await this.supabase.from('campaigns').insert([newCampaign]).select().single();
-      if (error) throw error;
-      return data;
-    } else {
-      const db = this.readLocalDb();
-      db.campaigns.unshift(newCampaign);
-      this.writeLocalDb(db);
-      return newCampaign;
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        const { data, error } = await this.supabase.from('campaigns').insert([newCampaign]).select().single();
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.error('[Database] Supabase createCampaign falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
+      }
     }
+    const db = this.readLocalDb();
+    db.campaigns.unshift(newCampaign);
+    this.writeLocalDb(db);
+    return newCampaign;
   }
 
   async updateCampaign(id, updates) {
-    if (this.isSupabaseEnabled) {
-      const { data, error } = await this.supabase.from('campaigns').update(updates).eq('id', id).select().single();
-      if (error) throw error;
-      return data;
-    } else {
-      const db = this.readLocalDb();
-      const index = db.campaigns.findIndex(c => c.id === id);
-      if (index === -1) return null;
-      db.campaigns[index] = { ...db.campaigns[index], ...updates };
-      this.writeLocalDb(db);
-      return db.campaigns[index];
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        const { data, error } = await this.supabase.from('campaigns').update(updates).eq('id', id).select().single();
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.error('[Database] Supabase updateCampaign falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
+      }
     }
+    const db = this.readLocalDb();
+    const index = db.campaigns.findIndex(c => c.id === id);
+    if (index === -1) return null;
+    db.campaigns[index] = { ...db.campaigns[index], ...updates };
+    this.writeLocalDb(db);
+    return db.campaigns[index];
   }
 
   async deleteCampaign(id) {
-    if (this.isSupabaseEnabled) {
-      const { error } = await this.supabase.from('campaigns').delete().eq('id', id);
-      if (error) throw error;
-      return true;
-    } else {
-      const db = this.readLocalDb();
-      db.campaigns = db.campaigns.filter(c => c.id !== id);
-      this.writeLocalDb(db);
-      return true;
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        const { error } = await this.supabase.from('campaigns').delete().eq('id', id);
+        if (error) throw error;
+        return true;
+      } catch (err) {
+        console.error('[Database] Supabase deleteCampaign falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
+      }
     }
+    const db = this.readLocalDb();
+    db.campaigns = db.campaigns.filter(c => c.id !== id);
+    this.writeLocalDb(db);
+    return true;
   }
 
   // ==========================================
   // PUBLICAÇÕES E HISTÓRICO (publications)
   // ==========================================
   async getPublications(filters = {}) {
-    if (this.isSupabaseEnabled) {
-      let query = this.supabase
-        .from('publications')
-        .select('*, product:products(name, platform, affiliate_url), group:groups(name, platform, external_group_id), campaign:campaigns(name)')
-        .order('created_at', { ascending: false });
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        let query = this.supabase
+          .from('publications')
+          .select('*, product:products(name, platform, affiliate_url), group:groups(name, platform, external_group_id), campaign:campaigns(name)')
+          .order('created_at', { ascending: false });
 
-      if (filters.status) query = query.eq('status', filters.status);
-      if (filters.groupId) query = query.eq('group_id', filters.groupId);
-      if (filters.productId) query = query.eq('product_id', filters.productId);
-      if (filters.campaignId) query = query.eq('campaign_id', filters.campaignId);
-      if (filters.limit) query = query.limit(parseInt(filters.limit, 10));
+        if (filters.status) query = query.eq('status', filters.status);
+        if (filters.groupId) query = query.eq('group_id', filters.groupId);
+        if (filters.productId) query = query.eq('product_id', filters.productId);
+        if (filters.campaignId) query = query.eq('campaign_id', filters.campaignId);
+        if (filters.limit) query = query.limit(parseInt(filters.limit, 10));
 
-      const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
-    } else {
-      const db = this.readLocalDb();
-      let list = [...(db.publications || [])];
+        const { data, error } = await query;
+        if (error) throw error;
+        return data || [];
+      } catch (err) {
+        console.error('[Database] Supabase getPublications falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
+      }
+    }
+    const db = this.readLocalDb();
+    let list = [...(db.publications || [])];
 
-      if (filters.status) list = list.filter(p => p.status === filters.status);
-      if (filters.groupId) list = list.filter(p => p.group_id === filters.groupId);
-      if (filters.productId) list = list.filter(p => p.product_id === filters.productId);
-      if (filters.campaignId) list = list.filter(p => p.campaign_id === filters.campaignId);
+    if (filters.status) list = list.filter(p => p.status === filters.status);
+    if (filters.groupId) list = list.filter(p => p.group_id === filters.groupId);
+    if (filters.productId) list = list.filter(p => p.product_id === filters.productId);
+    if (filters.campaignId) list = list.filter(p => p.campaign_id === filters.campaignId);
 
-      const populated = list.map(pub => {
-        const prod = db.products.find(p => p.id === pub.product_id);
-        const grp = db.groups.find(g => g.id === pub.group_id);
-        const camp = db.campaigns.find(c => c.id === pub.campaign_id);
+    const populated = list.map(pub => {
+      const prod = db.products.find(p => p.id === pub.product_id);
+      const grp = db.groups.find(g => g.id === pub.group_id);
+      const camp = db.campaigns.find(c => c.id === pub.campaign_id);
       return {
         ...pub,
         image_url: pub.image_url || null,
@@ -410,34 +497,38 @@ class Database {
         group: grp ? { name: grp.name, platform: grp.platform, external_group_id: grp.external_group_id } : null,
         campaign: camp ? { name: camp.name } : null
       };
-      });
+    });
 
-      populated.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-      if (filters.limit) {
-        return populated.slice(0, parseInt(filters.limit, 10));
-      }
-      return populated;
+    populated.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    if (filters.limit) {
+      return populated.slice(0, parseInt(filters.limit, 10));
     }
+    return populated;
   }
 
   async getRecentPublicationsForGroup(groupId, limit = 5) {
-    if (this.isSupabaseEnabled) {
-      const { data, error } = await this.supabase
-        .from('publications')
-        .select('*')
-        .eq('group_id', groupId)
-        .eq('status', 'published')
-        .order('published_at', { ascending: false })
-        .limit(limit);
-      if (error) return [];
-      return data || [];
-    } else {
-      const db = this.readLocalDb();
-      return (db.publications || [])
-        .filter(p => p.group_id === groupId && p.status === 'published')
-        .sort((a, b) => new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at))
-        .slice(0, limit);
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        const { data, error } = await this.supabase
+          .from('publications')
+          .select('*')
+          .eq('group_id', groupId)
+          .eq('status', 'published')
+          .order('published_at', { ascending: false })
+          .limit(limit);
+        if (error) throw error;
+        return data || [];
+      } catch (err) {
+        console.error('[Database] Supabase getRecentPublicationsForGroup falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
+      }
     }
+    const db = this.readLocalDb();
+    return (db.publications || [])
+      .filter(p => p.group_id === groupId && p.status === 'published')
+      .sort((a, b) => new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at))
+      .slice(0, limit);
   }
 
   async createPublication(pubData) {
@@ -456,94 +547,124 @@ class Database {
       created_at: new Date().toISOString()
     };
 
-    if (this.isSupabaseEnabled) {
-      const { data, error } = await this.supabase.from('publications').insert([newPub]).select().single();
-      if (error) throw error;
-      return data;
-    } else {
-      const db = this.readLocalDb();
-      db.publications.unshift(newPub);
-      this.writeLocalDb(db);
-      return newPub;
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        const { data, error } = await this.supabase.from('publications').insert([newPub]).select().single();
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.error('[Database] Supabase createPublication falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
+      }
     }
+    const db = this.readLocalDb();
+    db.publications.unshift(newPub);
+    this.writeLocalDb(db);
+    return newPub;
   }
 
   async updatePublication(id, updates) {
-    if (this.isSupabaseEnabled) {
-      const { data, error } = await this.supabase.from('publications').update(updates).eq('id', id).select().single();
-      if (error) throw error;
-      return data;
-    } else {
-      const db = this.readLocalDb();
-      const index = db.publications.findIndex(p => p.id === id);
-      if (index === -1) return null;
-      db.publications[index] = { ...db.publications[index], ...updates };
-      this.writeLocalDb(db);
-      return db.publications[index];
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        const { data, error } = await this.supabase.from('publications').update(updates).eq('id', id).select().single();
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.error('[Database] Supabase updatePublication falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
+      }
     }
+    const db = this.readLocalDb();
+    const index = db.publications.findIndex(p => p.id === id);
+    if (index === -1) return null;
+    db.publications[index] = { ...db.publications[index], ...updates };
+    this.writeLocalDb(db);
+    return db.publications[index];
   }
 
   async deletePublication(id) {
-    if (this.isSupabaseEnabled) {
-      const { error } = await this.supabase.from('publications').delete().eq('id', id);
-      if (error) throw error;
-      return true;
-    } else {
-      const db = this.readLocalDb();
-      const index = db.publications.findIndex(p => p.id === id);
-      if (index === -1) return false;
-      db.publications.splice(index, 1);
-      this.writeLocalDb(db);
-      return true;
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        const { error } = await this.supabase.from('publications').delete().eq('id', id);
+        if (error) throw error;
+        return true;
+      } catch (err) {
+        console.error('[Database] Supabase deletePublication falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
+      }
     }
+    const db = this.readLocalDb();
+    const index = db.publications.findIndex(p => p.id === id);
+    if (index === -1) return false;
+    db.publications.splice(index, 1);
+    this.writeLocalDb(db);
+    return true;
   }
 
   // ==========================================
   // CONFIGURAÇÕES (settings)
   // ==========================================
   async getSettings() {
-    if (this.isSupabaseEnabled) {
-      const { data, error } = await this.supabase.from('settings').select('*');
-      if (error) throw error;
-      const settingsMap = {};
-      (data || []).forEach(item => {
-        settingsMap[item.setting_name] = item.setting_value;
-      });
-      return settingsMap;
-    } else {
-      const db = this.readLocalDb();
-      return db.settings || {};
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        const { data, error } = await this.supabase.from('settings').select('*');
+        if (error) throw error;
+        const settingsMap = {};
+        (data || []).forEach(item => {
+          settingsMap[item.setting_name] = item.setting_value;
+        });
+        return settingsMap;
+      } catch (err) {
+        console.error('[Database] Supabase getSettings falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
+      }
     }
+    const db = this.readLocalDb();
+    return db.settings || {};
   }
 
   async getSetting(name, defaultValue = null) {
-    if (this.isSupabaseEnabled) {
-      const { data, error } = await this.supabase.from('settings').select('setting_value').eq('setting_name', name).single();
-      if (error || !data) return defaultValue;
-      return data.setting_value;
-    } else {
-      const db = this.readLocalDb();
-      return db.settings && db.settings[name] !== undefined ? db.settings[name] : defaultValue;
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        const { data, error } = await this.supabase.from('settings').select('setting_value').eq('setting_name', name).single();
+        if (error || !data) return defaultValue;
+        return data.setting_value;
+      } catch (err) {
+        console.error('[Database] Supabase getSetting falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
+      }
     }
+    const db = this.readLocalDb();
+    return db.settings && db.settings[name] !== undefined ? db.settings[name] : defaultValue;
   }
 
   async setSetting(name, value) {
     const stringVal = String(value);
-    if (this.isSupabaseEnabled) {
-      const { data, error } = await this.supabase
-        .from('settings')
-        .upsert({ setting_name: name, setting_value: stringVal, updated_at: new Date().toISOString() })
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
-    } else {
-      const db = this.readLocalDb();
-      if (!db.settings) db.settings = {};
-      db.settings[name] = stringVal;
-      this.writeLocalDb(db);
-      return { setting_name: name, setting_value: stringVal };
+    if (this.isSupabaseEnabled && !this.useLocalFallback) {
+      try {
+        const { data, error } = await this.supabase
+          .from('settings')
+          .upsert({ setting_name: name, setting_value: stringVal, updated_at: new Date().toISOString() })
+          .select()
+          .single();
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.error('[Database] Supabase setSetting falhou, fallback para local:', err.message);
+        this.useLocalFallback = true;
+        this.isSupabaseEnabled = false;
+      }
     }
+    const db = this.readLocalDb();
+    if (!db.settings) db.settings = {};
+    db.settings[name] = stringVal;
+    this.writeLocalDb(db);
+    return { setting_name: name, setting_value: stringVal };
   }
 
   // ==========================================
@@ -594,7 +715,7 @@ class Database {
       system: {
         emergency_pause_all: isEmergencyPaused,
         simulation_mode: isSimulationMode,
-        database_type: this.isSupabaseEnabled ? 'Supabase (PostgreSQL)' : 'Armazenamento Local',
+        database_type: this.useLocalFallback ? 'Armazenamento Local (Fallback)' : (this.isSupabaseEnabled ? 'Supabase (PostgreSQL)' : 'Armazenamento Local'),
         status: isEmergencyPaused ? 'PAUSADO (Interrupção Geral)' : 'OPERACIONAL'
       }
     };

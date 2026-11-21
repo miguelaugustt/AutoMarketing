@@ -102,7 +102,11 @@ async function handleSendManualPost(e) {
       const headers = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const response = await fetch(`${API_BASE_URL}/manual-post/send`, {
+      const apiBase = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
+        ? `${window.location.origin}/api`
+        : '/api';
+
+      const response = await fetch(`${apiBase}/manual-post/send`, {
         method: 'POST',
         headers,
         body: formData

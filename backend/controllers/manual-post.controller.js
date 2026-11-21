@@ -90,7 +90,7 @@ class ManualPostController {
       if (send_now) {
         const customToken = await db.getSetting('telegram_bot_token');
         const userbotConnected = userbotService.isConnected;
-        const simulationMode = process.env.SIMULATION_MODE === 'true';
+        const simulationMode = (await db.getSetting('simulation_mode', 'false')) === 'true' || process.env.SIMULATION_MODE === 'true';
 
         if (!customToken && !userbotConnected && !simulationMode) {
           return res.status(500).json({

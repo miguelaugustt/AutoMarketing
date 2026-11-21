@@ -188,7 +188,7 @@ function insertTag(tag) {
   textarea.selectionStart = textarea.selectionEnd = start + tag.length;
 }
 
-  async function handleSaveCampaign(e) {
+async function handleSaveCampaign(e) {
   e.preventDefault();
   const id = document.getElementById('campaign-id').value;
   const payload = {
@@ -235,7 +235,7 @@ async function toggleCampaignStatus(id) {
   }
 }
 
-  async function triggerCampaign(id) {
+async function triggerCampaign(id) {
   if (!confirm('Deseja disparar esta campanha imediatamente para os grupos autorizados que cumpriram o intervalo de 24h?')) {
     return;
   }
