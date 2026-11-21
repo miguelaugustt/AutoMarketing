@@ -97,10 +97,11 @@ app.post('/api/settings/test-meta', (req, res) => {
 app.get('/api/userbot/status', (req, res) => {
   res.json({
     success: true,
-    connected: true,
+    connected: false,
+    simulation: true,
     phone: '+55 37 99172-3499',
     username: 'Miguel',
-    message: 'Conectado (modo simulação)'
+    message: 'Modo simulação (não conectado realmente)'
   });
 });
 
