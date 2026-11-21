@@ -1,6 +1,6 @@
 /**
  * AUT0MARKETING - Vercel Serverless Function Entry Point
- * Versão completa com todas as rotas de API e resposta sempre em JSON
+ * Versão com estrutura de resposta correta para o frontend
  */
 
 const path = require('path');
@@ -32,10 +32,6 @@ app.use((err, req, res, next) => {
 // ============================================================================
 // ROTAS DE API - AUTENTICAÇÃO
 // ============================================================================
-
-app.get('/api/auth/login', (req, res) => {
-  res.status(405).json({ success: false, error: 'Use POST para login' });
-});
 
 app.post('/api/auth/login', (req, res) => {
   const { username, password } = req.body;
@@ -70,9 +66,18 @@ app.get('/api/settings', (req, res) => {
   res.json({
     success: true,
     settings: {
+      emergency_pause_all: 'false',
+      default_frequency_hours: '24',
       simulation_mode: 'false',
       telegram_bot_token: '',
       admin_password_hash: ''
+    },
+    database: {
+      type: 'local',
+      connected: true
+    },
+    environment: {
+      has_supabase_env: false
     }
   });
 });
@@ -206,17 +211,27 @@ app.post('/api/publications/:id/retry', (req, res) => {
 });
 
 // ============================================================================
-// ROTAS DE API - DASHBOARD
+// ROTAS DE API - DASHBOARD (estrutura que o frontend espera)
 // ============================================================================
 
 app.get('/api/dashboard/stats', (req, res) => {
   res.json({
     success: true,
     stats: {
-      total_groups: 0,
-      total_products: 0,
-      total_campaigns: 0,
-      total_publications: 0
+      products: { total: 0, active: 0 },
+      groups: { total: 0, authorized: 0, pending: 0 },
+      campaigns: { active: 0 },
+      publications: { published: 0, failed: 0, blocked: 0 },
+      system: { emergency_pause_all: 'false' }
+    },
+    recentPublications: [],
+    scheduler: {
+      lastRun: null,
+      isRunning: false
+    },
+    database: {
+      type: 'local',
+      connected: true
     }
   });
 });
